@@ -1,0 +1,8 @@
+{
+    "account_id": "5RW21209",
+    "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJleHAiOjE1ODc1ODg3OTEsInRva2VuIjoidlIzcFIwb2E0Z1RKb1k0ZjNxOTFWQ2w4U3paY0ZOIiwidXNlcl9pZCI6IjE4NWRjOWQzLTNkYTQtNDRiMS04MTIxLTY4MDA0NWY2MWRiNSIsImRldmljZV9oYXNoIjoiMGI2OGNmN2RiZjYxMDlkNWIyYjA4NWQxNDllMzdmOTYiLCJzY29wZSI6ImludGVybmFsIiwidXNlcl9vcmlnaW4iOiJVUyIsIm9wdGlvbnMiOnRydWUsImxldmVsMl9hY2Nlc3MiOnRydWV9.OFoQ251fOclGFC9a1hbEocg3xdplDAEuxWtjraudY9yFORgp7nkXKKM9YzA8x_RVZ29SaU4WhVRmDyZ84MGnkU63NrpxcdchDwaXBixAotCAHtqp2WxoESpCAHTC4E3OUjXbRetfriRDuhQBIqfdAE91I3YIkbjxnK5XgC6pl2r9PtRdpy75beWdMhhXldyNDItVAdP-4fIpHIbyx2RrhxZJqtpL6r5AL1AKGKhtlZVWlMA_Y-viktPbFJbWWPFbrTMvWsRzyElkuBI4O2trRTrE7voh0zwWwp_RPFEV5xJkmD-URxq6nqMEFKHHFRMWPOy2M6rpKvCeS84HU9n-wQ",
+    "refresh_token": "kHcr1fifAqE9F5nyUrqVoLwN8VgSCi",
+    "scope": "internal",
+    "token_type": "Bearer",
+    "device_token": null
+}
