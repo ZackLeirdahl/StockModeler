@@ -13,14 +13,14 @@ def filter(func):
 
 class Technicals:
     def __init__(self, df, **kwargs):
-        """ kwargs --> overlays, indicators, ntiles, change_only, filter_vals, filter_cols """
+        """ kwargs --> overlays, indicators, ntiles, change_only, values_only, include_historicals, filter_vals, filter_cols """
         self.df = self.build(df, **kwargs) if not kwargs.get('change_only') else self.change(df, **kwargs)
 
     @filter
     def build(self, df, **kwargs):
         overlays = Overlays(df, **kwargs).get() if kwargs.get('overlays',True) else []
         indicators = Indicators(df, **kwargs).get() if kwargs.get('indicators',True) else []
-        return self.change(df, **kwargs).join(overlays+indicators)
+        return self.change(df, **kwargs).join(overlays+indicators) if not kwargs.get('include_historicals', True) else df.join(overlays+indicators)
 
     def change(self, df, **kwargs):
         df['up'], df['down'] = df['change'].apply(lambda x: 1 if x > 0 else 0), df['change'].apply(lambda x: 1 if x < 0 else 0)
@@ -29,8 +29,9 @@ class Technicals:
         return df[[col for col in df if np.isin(df[col].dropna().unique(), [0.0, 1.0]).all()]].fillna(0)
 
 df = pd.read_csv('storage\\historicals\\AMD_daily_historicals.csv')
-print(convert_ntile(df['changePercent'], abs_val=True))
-#df = Technicals(df, overlays=['SMA'], overlay_periods=[10], indicators=False, ntiles=4, filter_cols=['sma_10_pctOfval_nt_4']).df
+df = Technicals(df).df
+df.to_csv('AMD_daily_technicals.csv', index=False)
+##df = Technicals(df, overlays=['SMA'], overlay_periods=[10], indicators=False, ntiles=4, filter_cols=['sma_10_pctOfval_nt_4']).df
 #print(df)
 #print(df)
 """PARAMS
@@ -40,6 +41,9 @@ print(convert_ntile(df['changePercent'], abs_val=True))
     - overlay_periods : any valid int
     - indicators : bool or list of indicators to include, used for Indicators
     - ntiles : int, used for Signals and Technicals
+    - change_only : bool, only get the change frame
+    - values_only : bool, only get the indicator values
+    - include_historicals : bool, keep the historicals df data
     - filters : list of column names that are True (1) in a binary column, used for Technicals
 """
 

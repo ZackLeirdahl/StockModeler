@@ -2,25 +2,22 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from firebase import Firebase
 
-def get_line_df(uri, num_rows=None, index='minute', lines=['open','high','low','close']):
-    df = Firebase().get(uri).head(num_rows)[[index]+lines] if num_rows else Firebase().get(uri)[[index]+lines]
-    df.index = df[index]
+def plot(func):
+    def wrapper(obj, **kwargs):
+        df = func(obj, **kwargs)
+        df.plot()
+        plt.show()
+        return None
+    return wrapper
+
+@plot
+def plot_line(obj, **kwargs):
+    df = Firebase().get(obj).head(kwargs.get('num_rows'))[[kwargs.get('index')]+kwargs.get('lines')] if not isinstance(obj,pd.DataFrame) else obj.head(kwargs.get('num_rows'))[[kwargs.get('index')]+kwargs.get('lines')]
+    df.index = df[kwargs.get('index')]
     return df
 
-## 1 column bar ##
-#df = Firebase().get('historicals/AMD_historicals_30.csv')
-#df['volume'].plot(kind='bar')
-#plt.show()
-
-df = Firebase().get('historicals/AMD_historicals_daily.csv')
-df = get_line_df('historicals/AMD_historicals_daily.csv', index='date')
-df.plot()
-plt.show()
 
 
-#df = get_line_df('historicals/AMD_historicals_daily.csv', num_rows=50, lines=['high','low'])
-#df.plot(title='AMD 30 Minute', ylim=(47,51))
-#plt.show()
 
 """ TO DO
 - create a method to create change% frame, use to compare multiple stocks

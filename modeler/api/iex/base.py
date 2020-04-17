@@ -5,7 +5,8 @@ from sseclient import SSEClient
 class IEXClient:
 
     urls = {
-        'base': 'https://cloud.iexapis.com/v1/stock/market/batch/', 
+        'base': 'https://cloud.iexapis.com/v1/stock/market/batch/',
+        'market' : 'https://cloud.iexapis.com/v1/data-points/market/{}',
         'stream': 'https://cloud-sse.iexapis.com/stable/{}?token={}&symbols={}'}
     
     fields = {
@@ -24,7 +25,7 @@ class IEXClient:
         'daily': ['date','open','high','low','close','change','changePercent','volume']}
     
     def __init__(self, symbol=None, **kwargs):
-        self.symbol = symbol.upper()
+        self.symbol = symbol.upper() if symbol else None
         self.session = requests.session()
         self.token = kwargs.get('token','pk_a06a25225ada4526b58688e6a1bf95c4')
 
@@ -35,6 +36,11 @@ class IEXClient:
         response = self.session.get(url=self.urls['base'], params=self.params(endpoint,params)) if not stream else SSEClient(self.urls['stream'].format(endpoint,self.token,self.symbol))
         return response.json()[self.symbol][endpoint] if not stream else response
     
+    def fetch_market(self, endpoint, params = {}):
+        response = self.session.get(url = self.urls['market'].format(endpoint), params={'token':self.token})
+        return response.json()
+
+    ### base api calls ###
     def get_key_stats(self, **kwargs):
         return {k: round(v*100,2) if 'Percent' in k else v for k, v in self.fetch('stats', params=kwargs).items() if k in self.fields['key_stats']} 
 		
@@ -110,9 +116,76 @@ class IEXClient:
     def get_volume_by_venue(self):
         return pd.DataFrame(self.fetch('volume-by-venue'))
 
+    ### stream api calls ###
     def get_quote_stream(self):
         return self.fetch('stocksUSNoUTP',stream=True)
     
     def get_news_stream(self):
         return self.fetch('news-stream',stream=True)
 
+    ### market api calls ###
+    def get_daily_treasury_rates(self, rate=30):
+        return self.fetch_market('DGS' + str(rate))
+
+    def get_oil_prices(self, brent=False):
+        return self.fetch_market('DCOILWTICO' if not brent else 'DCOILBRENTEU')
+    
+    def get_natural_gas_prices(self):
+        return self.fetch_market('DHHNGSP')
+    
+    def get_heating_oil_prices(self):
+        return self.fetch_market('DHOILNYH')
+
+    def get_jet_fuel_prices(self):
+        return self.fetch_market('DJFUELUSGULF')
+    
+    def get_diesel_prices(self):
+        return self.fetch_market('GASDESW')
+    
+    def get_gas_prices(self):
+        return self.fetch_market('GASREGCOVW')
+    
+    def get_propane_prices(self):
+        return self.fetch_market('DPROPANEMBTX')
+
+    def get_cpi(self):
+        return self.fetch_market('CPIAUCSL')
+
+    def get_cc_interest_rates(self):
+        return self.fetch_market('TERMCBCCALLNS')
+    
+    def get_fed_fund_rate(self):
+        return self.fetch_market('FEDFUNDS')
+    
+    def get_real_gdp(self):
+        return self.fetch_market('A191RL1Q225SBEA')
+    
+    def get_imf(self):
+        return self.fetch_market('WIMFSL')
+    
+    def get_initial_claims(self):
+        return self.fetch_market('IC4WSA')
+    
+    def get_industrial_production_interest(self):
+        return self.fetch_market('INDPRO')
+    
+    def get_mortgage_rates(self, length=30):
+        return self.fetch_market('MORTGAGE30US' if length == 30 else ('MORTGAGE15US' if length == 15 else 'MORTGAGE5US'))
+    
+    def get_total_housing_starts(self):
+        return self.fetch_market('HOUST')
+    
+    def get_total_payrolls(self):
+        return self.fetch_market('PAYEMS')
+    
+    def get_total_vehicle_sales(self):
+        return self.fetch_market('TOTALSA')
+    
+    def get_retail_money_funds(self):
+        return self.fetch_market('WRMFSL')
+    
+    def get_unemployment_rate(self):
+        return self.fetch_market('UNRATE')
+    
+    def get_recession_probability(self):
+        return self.fetch_market('RECPROUSM156N')
