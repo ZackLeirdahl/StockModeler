@@ -4,12 +4,12 @@ from sseclient import SSEClient
                      
 class IEXClient:
 
-    urls = {
+    URLS = {
         'base': 'https://cloud.iexapis.com/v1/stock/market/batch/',
         'market' : 'https://cloud.iexapis.com/v1/data-points/market/{}',
         'stream': 'https://cloud-sse.iexapis.com/stable/{}?token={}&symbols={}'}
     
-    fields = {
+    FIELDS = {
         'company': ['exchange','industry','sector','tags'],
         'advanced_stats': ['revenuePerShare','revenuePerEmployee','debtToEquity','profitMargin','enterpriseValue','enterpriseValueToRevenue','priceToSales','priceToBook','forwardPERatio','pegRatio','peRatio','peHigh','peLow'],
         'quote': ['change','changePercent','iexAskPrice','iexAskSize','iexBidPrice','iexBidSize','iexRealtimeSize','latestPrice','latestTime','latestUpdate','volume'],
@@ -24,46 +24,52 @@ class IEXClient:
         'minute': ['date','minute','open','high','low','close','volume'],
         'daily': ['date','open','high','low','close','change','changePercent','volume']}
     
-    def __init__(self, symbol=None, **kwargs):
+    ENDPOINTS = {
+        'base': ['key_stats','advanced_stats','balance_sheet','cash_flow','earnings','financials','income_statement','company','dividends','estimates','fund_ownership','insider_roster','insider_summary','insider_transactions','institutiona_ownership'],
+        'commodities': ['oil','natural_gas','heating_oil','jet_fuel','diesel','gas','propane'],
+        'economic_data': ['daily_treasury_rates','cpi','cc_interest_rates','fed_fund_rate','real_gdp','imf','initial_claims','industrial_production_interest','mortgage_rates','total_housing_starts','total_payrolls','total_vehicle_sales','retail_money_funds','unemployment_rate','recession_probability']
+    }
+    
+    def __init__(self, symbol=None, token=None):
         self.symbol = symbol.upper() if symbol else None
         self.session = requests.session()
-        self.token = kwargs.get('token','pk_a06a25225ada4526b58688e6a1bf95c4')
+        self.token = 'pk_a06a25225ada4526b58688e6a1bf95c4' if not token else token
 
     def params(self, endpoint, optional_params = {}):
         return {**{'symbols': self.symbol,'types': endpoint, 'token': self.token}, **{k: str(v).lower() if v is True or v is False else str(v) for k, v in optional_params.items()}}
 
     def fetch(self, endpoint, params={}, stream=False):
-        response = self.session.get(url=self.urls['base'], params=self.params(endpoint,params)) if not stream else SSEClient(self.urls['stream'].format(endpoint,self.token,self.symbol))
+        response = self.session.get(url=self.URLS['base'], params=self.params(endpoint,params)) if not stream else SSEClient(self.URLS['stream'].format(endpoint,self.token,self.symbol))
         return response.json()[self.symbol][endpoint] if not stream else response
     
-    def fetch_market(self, endpoint, params = {}):
-        response = self.session.get(url = self.urls['market'].format(endpoint), params={'token':self.token})
+    def fetch_market(self, endpoint):
+        response = self.session.get(url = self.URLS['market'].format(endpoint), params={'token':self.token})
         return response.json()
 
     ### base api calls ###
     def get_key_stats(self, **kwargs):
-        return {k: round(v*100,2) if 'Percent' in k else v for k, v in self.fetch('stats', params=kwargs).items() if k in self.fields['key_stats']} 
+        return {k: round(v*100,2) if 'Percent' in k else v for k, v in self.fetch('stats', params=kwargs).items() if k in self.FIELDS['key_stats']} 
 		
     def get_advanced_stats(self, **kwargs):
-        return {k: round(v*100,2) if k == 'profitMargin' else (round(v,2) if type(v) == float else v) for k, v in self.fetch('advanced-stats', params=kwargs).items() if k in self.fields['advanced_stats']}
+        return {k: round(v*100,2) if k == 'profitMargin' else (round(v,2) if type(v) == float else v) for k, v in self.fetch('advanced-stats', params=kwargs).items() if k in self.FIELDS['advanced_stats']}
 
     def get_balance_sheet(self, **kwargs):
-        return pd.DataFrame(list(map(lambda x: {k:v for k, v in x.items() if k in self.fields['balance_sheet']}, self.fetch('balance-sheet', params=kwargs)['balancesheet'])))
+        return pd.DataFrame(list(map(lambda x: {k:v for k, v in x.items() if k in self.FIELDS['balance_sheet']}, self.fetch('balance-sheet', params=kwargs)['balancesheet'])))
 	
     def get_cash_flow(self, **kwargs):
-        return pd.DataFrame(list(map(lambda x: {k:v for k, v in x.items() if k in self.fields['cash_flow']}, self.fetch('cash-flow', params=kwargs)['cashflow'])))
+        return pd.DataFrame(list(map(lambda x: {k:v for k, v in x.items() if k in self.FIELDS['cash_flow']}, self.fetch('cash-flow', params=kwargs)['cashflow'])))
 
     def get_earnings(self, **kwargs):
         return pd.DataFrame(list(map(lambda x: {k if k != 'fiscalEndDate' else 'reportDate': v for k, v in x.items()}, self.fetch('earnings', params=kwargs)['earnings'])))
 
     def get_financials(self, **kwargs):
-        return pd.DataFrame(list(map(lambda x: {k:v for k, v in x.items() if k in self.fields['financials']}, self.fetch('financials', params=kwargs)['financials'])))
+        return pd.DataFrame(list(map(lambda x: {k:v for k, v in x.items() if k in self.FIELDS['financials']}, self.fetch('financials', params=kwargs)['financials'])))
     
     def get_income_statement(self, **kwargs):
-        return pd.DataFrame(list(map(lambda x: {k:v for k, v in x.items() if k in self.fields['income_statement']}, self.fetch('income', params=kwargs)['income'])))
+        return pd.DataFrame(list(map(lambda x: {k:v for k, v in x.items() if k in self.FIELDS['income_statement']}, self.fetch('income', params=kwargs)['income'])))
 
     def get_company(self, **kwargs):
-        return {k:v for k, v in self.fetch('company', params=kwargs).items() if k in self.fields['company']}
+        return {k:v for k, v in self.fetch('company', params=kwargs).items() if k in self.FIELDS['company']}
 
     def get_dividends(self, **kwargs):
         return pd.DataFrame(self.fetch('dividends', params=kwargs))
@@ -93,7 +99,7 @@ class IEXClient:
         return self.fetch('recommendation-trends')
         
     def get_news(self, **kwargs):
-        return pd.DataFrame(self.fetch('news', params=kwargs))[self.fields['news']]
+        return pd.DataFrame(self.fetch('news', params=kwargs))[self.FIELDS['news']]
 
     def get_previous_day_prices(self):
         return {k:v for k, v in self.fetch('previous').items() if k != 'symbol'}
@@ -124,8 +130,9 @@ class IEXClient:
         return self.fetch('news-stream',stream=True)
 
     ### market api calls ###
-    def get_daily_treasury_rates(self, rate=30):
-        return self.fetch_market('DGS' + str(rate))
+    ### commodoties
+    def get_commodities(self):
+        return pd.DataFrame([(commodity, getattr(self, 'get_{}_prices'.format(commodity))()) for commodity in self.ENDPOINTS['commodities']])
 
     def get_oil_prices(self, brent=False):
         return self.fetch_market('DCOILWTICO' if not brent else 'DCOILBRENTEU')
@@ -147,6 +154,13 @@ class IEXClient:
     
     def get_propane_prices(self):
         return self.fetch_market('DPROPANEMBTX')
+
+    ### economic Deta ###
+    def get_economic_data(self):
+        return pd.DataFrame([(data_point, getattr(self, 'get_{}'.format(data_point))()) for data_point in self.ENDPOINTS['economic_data']])
+    
+    def get_daily_treasury_rates(self, rate=30):
+        return self.fetch_market('DGS' + str(rate))
 
     def get_cpi(self):
         return self.fetch_market('CPIAUCSL')
@@ -189,3 +203,6 @@ class IEXClient:
     
     def get_recession_probability(self):
         return self.fetch_market('RECPROUSM156N')
+
+ic = IEXClient()
+print(ic.get_economic_data())
