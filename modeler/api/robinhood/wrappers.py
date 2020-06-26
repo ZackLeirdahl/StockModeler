@@ -4,10 +4,8 @@ from functools import wraps
 from datetime import datetime
 from dateutil.parser import parse
 try:
-    from util import fullpath
     from endpoints import stock
 except:
-    from .util import fullpath
     from .endpoints import stock
 
 """ Client Wrappers """
@@ -36,7 +34,9 @@ def post_login(func):
 def pre_login(func):
     @wraps(func)
     def wrapper(self):
-        self.payload = {'client_id': 'c82SH0WZOsabOXGP2sxqcj34FxkvfnWRZBKlBjFS' ,'device_token': str(uuid.uuid4()),'expires_in': 86400,'grant_type': 'password','password': self.password,'scope': 'internal','username': self.username,'challenge_type': 'sms'}
+        with open('robinhood_cred.json', 'r') as f:
+            creds = json.loads(f.read())
+        self.payload = {'client_id': 'c82SH0WZOsabOXGP2sxqcj34FxkvfnWRZBKlBjFS' ,'device_token': str(uuid.uuid4()),'expires_in': 86400,'grant_type': 'password','password': creds['password'],'scope': 'internal','username': creds['username'],'challenge_type': 'sms'}
         self.headers['Content-Type'] = 'application/json'
         if os.path.exists('robinhood_auth.json'):
             if (int(time.time()) - int(os.path.getmtime('robinhood_auth.json')))/3600 > 22:
@@ -51,10 +51,7 @@ def pre_login(func):
 def populate_queue(func):
     def wrapper(self):
         data = func(self)
-        self.id = data['id']
-        self.expiration_dates = data['expiration_dates']
-        self.num_threads = len(self.expiration_dates)
-        self.dfs = []
+        self.id, self.expiration_dates, self.num_threads, self.dfs = data['id'], data['expiration_dates'], len(data['expiration_dates']), []
         list(map(self.q.put, self.expiration_dates))
         return data
     return wrapper
@@ -95,10 +92,11 @@ def filter_option_orders(func):
     def wrapper(self, **kwargs):
         orders = func(self, **kwargs)
         filters = {k: v for k, v in kwargs.items() if k in ['state','opening_strategy','chain_symbol']}
-        results =  [list(filter(lambda x: x[k] == v, orders)) for k, v in filters.items()][0]
+        results =  pd.DataFrame([list(filter(lambda x: x[k] == v, orders)) for k, v in filters.items()][0]) if kwargs else pd.DataFrame(orders)
         if kwargs.get('ids'):
-            return [o['id'] for o in results]
-        return results
+            return results['id'].to_list()
+        results['option'] = results['legs'].apply(lambda x: x[0]['option'])
+        return results.sort_values(by=['created_at'], ascending=False)
     return wrapper
 
 def filter_stock_orders(func):
@@ -115,8 +113,11 @@ def filter_options_positions(func):
     def wrapper(self, **kwargs):
         options = func(self, **kwargs)
         filters = {k if k != 'symbol' else 'chain_symbol': v for k, v in kwargs.items() if k in ['symbol', 'type']}
-        results = [list(filter(lambda x: x[k] == v, options)) for k, v in filters.items()][0] if filters else options
+        results = pd.DataFrame([list(filter(lambda x: x[k] == v, options)) for k, v in filters.items()][0] if filters else options)
         if kwargs.get('ids'):
-            return [o['option'][:-1].split('/')[-1] for o in results]
+            results['id'] = results['option'].apply(lambda x: x[:-1].split('/')[-1])
+            results['instrument'] = results['option']
+            results['side'] = results['type']
+            return results[['id','instrument','side','quantity']]
         return results
     return wrapper

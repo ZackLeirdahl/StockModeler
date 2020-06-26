@@ -1,7 +1,12 @@
 import pandas as pd
-from indicators import Indicators
-from overlays import Overlays
-from util import *
+try:
+    from indicators import Indicators
+    from overlays import Overlays
+    from util import *
+except:
+    from .indicators import Indicators
+    from .overlays import Overlays
+    from .util import *
 
 def filter(func):
     def wrapper(self, *args, **kwargs):
@@ -13,7 +18,7 @@ def filter(func):
 
 class Technicals:
     def __init__(self, df, **kwargs):
-        """ kwargs --> overlays, indicators, ntiles, change_only, values_only, include_historicals, filter_vals, filter_cols """
+        """ kwargs --> overlays, indicators, ntiles, change_only, values_only, include_historicals, include_time, filter_vals, filter_cols """
         self.df = self.build(df, **kwargs) if not kwargs.get('change_only') else self.change(df, **kwargs)
 
     @filter
@@ -26,14 +31,8 @@ class Technicals:
         df['up'], df['down'] = df['change'].apply(lambda x: 1 if x > 0 else 0), df['change'].apply(lambda x: 1 if x < 0 else 0)
         if kwargs.get('ntiles'):
             df = df.join(convert_ntile(df['changePercent'],n=4, abs_val=True))
-        return df[[col for col in df if np.isin(df[col].dropna().unique(), [0.0, 1.0]).all()]].fillna(0)
+        return df[[col for col in df if np.isin(df[col].dropna().unique(), [0.0, 1.0]).all()]].fillna(0) if not kwargs.get('include_time') else df[[col for col in df if np.isin(df[col].dropna().unique(), [0.0, 1.0]).all() or col in ['date','minute']]].fillna(0)
 
-df = pd.read_csv('storage\\historicals\\AMD_daily_historicals.csv')
-df = Technicals(df).df
-df.to_csv('AMD_daily_technicals.csv', index=False)
-##df = Technicals(df, overlays=['SMA'], overlay_periods=[10], indicators=False, ntiles=4, filter_cols=['sma_10_pctOfval_nt_4']).df
-#print(df)
-#print(df)
 """PARAMS
 - Technicals
     - df : historical df, used for Signals and Technicals
@@ -44,6 +43,7 @@ df.to_csv('AMD_daily_technicals.csv', index=False)
     - change_only : bool, only get the change frame
     - values_only : bool, only get the indicator values
     - include_historicals : bool, keep the historicals df data
+    - include_time : bool, keep the time of each record
     - filters : list of column names that are True (1) in a binary column, used for Technicals
 """
 

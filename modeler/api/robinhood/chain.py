@@ -8,27 +8,24 @@ try:
     from client_methods import ClientMethods
     from client import Client
     from endpoints import stock, option_chain
-    from util import dte, black_scholes
+    from util import dte, black_scholes, format_strike
     from wrappers import populate_queue, append_timestamp, latest_price, filter_fields
 except:
     from .client_methods import ClientMethods
     from .client import Client
     from .endpoints import stock, option_chain
-    from .util import dte, black_scholes
+    from .util import dte, black_scholes, format_strike
     from .wrappers import populate_queue, append_timestamp, latest_price, filter_fields
 
 class Chain:
     def __init__(self, symbol, populate=True):
-        self.symbol = symbol.upper()
-        self.client = Client()
+        self.symbol, self.client = symbol.upper(), Client()
         self.stock_id = self.client.get(stock(self.symbol))['results'][0]['id']
-        self.build_chain()
         self.options = self.build_chain() if populate else None
             
     @append_timestamp
     def build_chain(self):
         self.q = Queue(maxsize=0)
-        self.stock_id = self.client.get(stock(self.symbol))['results'][0]['id']
         self.initialize_chain()
         self.thread_factory()
         self.q.join()
@@ -49,8 +46,22 @@ class Chain:
             self.dfs.append(ClientMethods.fetch_by_expiration(self.client, self.id, [self.q.get()]))
             self.q.task_done()
 
-    def get_option_url(self, strike, expiration, type):
-        return self.options[(self.options['type'] == type) & (self.options['strike_price'] == str(strike) + '.0000' if len(str(strike).split('.')) == 1 else str(strike) + '000') & (self.options['expiration_date'] == parse(expiration).strftime('%Y-%m-%d'))].to_dict('records')[0]['url']
+    def get_option(self, expiration, strike,  type):
+        """A method to get a single option from the chain.
+        Parameters
+        ----------
+        expiration : str
+            the expiration of the option
+        strike : str, float, int
+            the strike price of the option
+        type : str
+            the type of option ('call','put')
+        Returns
+        -------
+        dict
+            the dictionary data of the option
+        """
+        return self.options[(self.options['type'] == type) & (self.options['strike_price'] == format_strike(str(strike))) & (self.options['expiration_date'] == parse(expiration).strftime('%Y-%m-%d'))].to_dict('records')[0]
 
     @filter_fields
     def get_active_options(self, expiration=None, measure='volume', option_type='call', limit=1):
@@ -71,7 +82,7 @@ class Chain:
         DataFrame
             a DataFrame of the option data for the most active option(s)
         """
-        return self.options[self.options['type'] == option_type].sort_values(by=[measure], axis=0, ascending=False).head(limit) if expiration is None else self.options[self.options['type'] == option_type][self.options['expiration_date'] == parse(expiration).strftime('%Y-%m-%d')].sort_values(by=[measure], axis=0, ascending=False).head(limit)
+        return self.options[self.options['type'] == option_type].sort_values(by=[measure], axis=0, ascending=False).head(limit) if expiration is None else self.options[(self.options['type'] == option_type) & (self.options['expiration_date'] == parse(expiration).strftime('%Y-%m-%d'))].sort_values(by=[measure], axis=0, ascending=False).head(limit)
     
     @latest_price
     def get_options_with_limit(self, expirations=None, limit=12):
@@ -123,7 +134,39 @@ class Chain:
         return round(self.get_options_with_limit()['implied_volatility'].astype('float64').mean(),4)
 
     def get_option_spread(self):
-        return {**{k + '_' + measure: v  for measure in ['volume','open_interest'] for k, v in self.options.groupby(['type'])[measure].sum().to_dict().items()},**{measure: self.options[measure].sum() for measure in ['volume','open_interest']}}
+        """ A method to get the spread for the option chain
+        Returns
+        -------
+        pandas.DataFrame
+            A DataFrame of the spread information
+        """
+        data = {**{k + '_' + measure: v  for measure in ['volume','open_interest'] for k, v in self.options.groupby(['type'])[measure].sum().to_dict().items()},**{measure: self.options[measure].sum() for measure in ['volume','open_interest']}}
+        data['put_call_ratio'] = data['call_volume']/data['put_volume']
+        return pd.DataFrame([data])
 
     def get_theoretical_mark(self, strike, exp, type = 'call'):
+        """ A method to get the theoretical mark price for an option.
+        Parameters
+        ----------
+        strike : float, int, str
+            the strike price of the option
+        exp : str
+            the expiration for the option
+        type : str, optional
+            the option type, 'call' or 'put', default is 'call'
+        Returns
+        -------
+        float
+            the theoretical mark price
+        """
         return black_scholes(float(self.price), float(strike), dte(exp)/365, .0094, float(self.options[(self.options['type'] == type) & (self.options['strike_price'] == str(strike) + '.0000' if len(str(strike).split('.')) == 1 else str(strike) + '000') & (self.options['expiration_date'] == parse(exp).strftime('%Y-%m-%d'))].to_dict('records')[0]['implied_volatility']), type)
+
+#start = time.time()
+#c = Chain('AMD')
+#print(c.get_active_options(option_type='call',limit=5))
+#print(c.get_active_options(limit=5, option_type='put'))
+#print(c.get_option_spread())
+#print(time.time() - start)
+#print(c.get_theoretical_mark('60','2020-06-05'))
+#print(c.get_average_implied_volatility())
+#print(c.get_max_pain())

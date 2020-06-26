@@ -1,7 +1,11 @@
 import numpy as np
 import pandas as pd
-from signals import Signal
-from util import *
+try:
+    from signals import Signal
+    from util import *
+except:
+    from .signals import Signal
+    from .util import *
 
 INDICATORS = ['RSI', 'WR', 'AO', 'AROON', 'BB', 'CCI', 'CMF', 'KC', 'KST', 'MACD', 'MFI', 'STOCH_D', 'STOCH_K', 'TRIX', 'TSI', 'UO'] #['ATR', 'OBV']
 

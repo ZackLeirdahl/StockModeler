@@ -1,8 +1,9 @@
 import pandas as pd
-import time
 from mlxtend.frequent_patterns import apriori, association_rules
-#from sklearn.tree import DecisionTreeClassifier
-from technicals import Technicals
+try:
+    from technicals import Technicals
+except:
+    from .technicals import Technicals
 
 def filter(func):
     def wrapper(self, *args, **kwargs):
@@ -30,27 +31,3 @@ class AssociationRules:
     @filter
     def get_association_rules(self, apr_df):
         return association_rules(apr_df, metric=self.metric, min_threshold=self.min_thresh)
-
-
-# st = time.time()
-#df = pd.read_csv('storage\\historicals\\AMD_daily_historicals.csv')
-#df = Technicals(df, overlays=False, indicators=['RSI'],ntiles=4, filter_cols=['rsi_nt_4','rsi_pctOfmax_nt_4']).df
-#print(df.columns)
-#df = Technicals(df, overlays=False).df
-#ar = AssociationRules(df, min_sup=0.0, min_thresh=0.0,filters = [('con', "x == ['up'] or x == ['down']"),('ant_len', "x == 1")], sort_by='lift')
-
-#print(ar.df)
-# print(time.time() - st)
-
-""" Algorithm parts
-- predict direction --> classifications = up or down
-- predict magnitude --> classifications = up/down big/small
-"""
-
-""" Classifier predictor buckets
-- momentum --> use momentum indicators to create a scale of confidence (1-4? 1-10?) and categorize records
-- trend
-- volume
-- volatility
-- overlays
-"""

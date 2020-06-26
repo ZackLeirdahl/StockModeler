@@ -1,4 +1,4 @@
-import uuid, datetime
+import uuid, datetime, json
 import pandas as pd
 try:
     from endpoints import *
@@ -12,7 +12,7 @@ class ClientMethods(object):
     @classmethod
     def fetch_price(cls, client, symbol):
         now = datetime.datetime.now()
-        return float(client.get(client.get(stock(symbol))['results'][0]['quote'])['last_trade_price']) if not (now.hour > 14 or now.hour < 8) or (now.hour == 8 and now.minute < 30) else float(client.get(client.get(stock(symbol))['results'][0]['quote'])['last_extended_hours_trade_price'])
+        return float(client.get(client.get(stock(symbol))['results'][0]['quote'])['last_trade_price']) if not ((now.hour > 14 or now.hour < 8) or (now.hour == 8 and now.minute < 30)) else float(client.get(client.get(stock(symbol))['results'][0]['quote'])['last_extended_hours_trade_price'])
 
     @classmethod
     def fetch_by_expiration(cls, client, chain_id, expiration_dates=[]):
@@ -37,7 +37,9 @@ class ClientMethods(object):
     def market_data_by_ids(cls, client, ids):
         results = []
         for _urls in chunked_list(["{}{}/".format(options(), _id) for _id in ids], 50):
-            results.extend(client.get(option_marketdata(), params={'instruments': ','.join(_urls)})['results'])
+            res = client.get(option_marketdata(), params={'instruments': ','.join(_urls)})
+            if res:
+                results.extend(res['results'])
         return [r for r in results if r is not None]
     
     @classmethod
@@ -57,7 +59,8 @@ class ClientMethods(object):
 
     @classmethod
     def fetch_stock_positions(cls, client):
-        return {client.get(stock['instrument'])['symbol']: stock for stock in list(filter(lambda x: float(x["quantity"]) > 0.0, client.get(stock_positions())['results']))}
+        positions = {client.get(stock['instrument'])['symbol']: stock for stock in list(filter(lambda x: float(x["quantity"]) > 0.0, client.get(stock_positions())['results']))}
+        return pd.DataFrame([{**v,**{'symbol':k, 'equity': cls.fetch_price(client,k)* float(v['quantity'])}} for k, v in positions.items()]) if positions else pd.DataFrame([{'equity':0}])
     
     @classmethod
     def fetch_all_option_orders(cls, client):
@@ -76,8 +79,9 @@ class ClientMethods(object):
         return client.get(stock_orders())['results']
     
     @classmethod
-    def submit_option_order(cls, client, direction, legs, price, quantity, time_in_force, trigger, order_type):
-        payload = json.dumps({'account': account(client.account_id), 'direction': direction, 'legs': legs, 'price': price, 'quantity': quantity, 'time_in_force': time_in_force, 'trigger': trigger, 'type': order_type, 'override_day_trade_checks': False, 'override_dtbp_checks': False, 'ref_id': str(uuid.uuid4())})
+    def submit_option_order(cls, client, direction, legs, price, quantity, time_in_force='gfd', trigger='immediate', order_type='limit'):
+        # direction = credit/debit
+        payload = {'account': account(client.account_id), 'direction': direction, 'legs': legs, 'price': str(price), 'quantity': int(quantity), 'time_in_force': time_in_force, 'trigger': trigger, 'type': order_type, 'override_day_trade_checks': False, 'override_dtbp_checks': False, 'ref_id': str(uuid.uuid4())}
         return client.post(option_orders(), payload=payload)
     
     @classmethod
@@ -94,12 +98,12 @@ class ClientMethods(object):
 
     @classmethod
     def submit_stock_order(cls, client, symbol, quantity, side, price=None, time_in_force='gfd', trigger='immediate', order_type='market'):
-        stock = client.get(stock(symbol.upper()))['results'][0]
-        payload = {'account': account(client.account_id),'instrument': stock['url'],'quantity': quantity,'side': side.lower(),'symbol': symbol.upper(),'time_in_force': time_in_force.lower(),'trigger': trigger.lower(),'type': order_type.lower()}
+        s = client.get(stock(symbol.upper()))['results'][0]
+        payload = {'account': account(client.account_id),'instrument': s['url'],'quantity': int(quantity),'side': side.lower(),'symbol': symbol.upper(),'time_in_force': time_in_force.lower(),'trigger': trigger.lower(),'type': order_type.lower()}
         if order_type.lower() == "stop":
-            payload['stop_price'] = float(client.get(stock['quote'])['bid_price']) if not price else float(price)
+            payload['stop_price'] = float(client.get(s['quote'])['bid_price']) if not price else float(price)
         else:
-            payload['price'] = float(client.get(stock['quote'])['bid_price']) if not price else float(price)
+            payload['price'] = float(client.get(s['quote'])['bid_price']) if not price else float(price)
         return client.post(stock_orders(),payload=payload)
     
     @classmethod

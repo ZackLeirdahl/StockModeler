@@ -11,7 +11,7 @@ def option_chain():
     return 'https://api.robinhood.com/options/chains/'
 
 def account(account_id):
-    return 'https://api.robinhood.com/accounts/{}'.format(account_id)
+    return 'https://api.robinhood.com/accounts/{}/'.format(account_id)
 
 def accounts():
     return 'https://api.robinhood.com/accounts/'

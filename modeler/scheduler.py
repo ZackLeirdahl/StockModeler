@@ -14,7 +14,7 @@ def populate_schedule(q, task_type, test=False):
 if __name__ == '__main__':
     process_queue = Queue()
     consumers = [Consumer(process_queue) for i in range(2)]
-    populate_schedule(process_queue, 'dynamic_archive', True)
+    populate_schedule(process_queue, 'daily', True)
     print(schedule.jobs)
     while True:
         schedule.run_pending()

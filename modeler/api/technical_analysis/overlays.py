@@ -1,7 +1,11 @@
 import pandas as pd
 import numpy as np
-from signals import Signal
-from util import *
+try:
+    from signals import Signal
+    from util import *
+except:
+    from .signals import Signal
+    from .util import *
 
 OVERLAYS = ['SMA', 'EMA', 'VMA']
 PERIODS = [10, 20, 50, 100, 200]

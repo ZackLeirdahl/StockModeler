@@ -19,13 +19,13 @@ class IEXClient:
         'financials': ['currentDebt', 'operatingRevenue', 'reportDate', 'shortTermDebt', 'totalCash', 'totalDebt'],
         'news': ['datetime','hasPaywall','headline','related','source','summary','url'],
         'key_stats': ['marketcap', 'employees', 'float', 'ttmEPS', 'ttmDividendRate', 'companyName', 'sharesOutstanding', 'nextDividendDate', 'dividendYield', 'nextEarningsDate', 'exDividendDate', 'beta'],
-        'analyst': ['updateDate','ratingBuy', 'ratingOverweight', 'ratingHold', 'ratingUnderweight', 'ratingSell', 'ratingNone', 'ratingScaleMark', 'priceTargetAverage', 'priceTargetHigh', 'priceTargetLow', 'numberOfAnalysts', 'consensusEPS', 'numberOfEstimates', 'reportDate', 'fiscalPeriod', 'fiscalEndDate'],
+        'analyst': ['updateDate','buy', 'hold', 'sell', 'ratingScaleMark', 'priceTargetAverage', 'priceTargetHigh', 'priceTargetLow', 'numberOfAnalysts', 'consensusEPS', 'numberOfEstimates', 'reportDate', 'fiscalPeriod', 'fiscalEndDate'],
         'valuation': ['peRatio','priceToBook','priceToSales','pegRatio','forwardPERatio','revenuePerEmployee','enterpriseValueToRevenue'],
         'minute': ['date','minute','open','high','low','close','volume'],
         'daily': ['date','open','high','low','close','change','changePercent','volume']}
     
     ENDPOINTS = {
-        'base': ['key_stats','advanced_stats','balance_sheet','cash_flow','earnings','financials','income_statement','company','dividends','estimates','fund_ownership','insider_roster','insider_summary','insider_transactions','institutiona_ownership'],
+        'base': ['key_stats','advanced_stats','balance_sheet','cash_flow','earnings','financials','income_statement','company','dividends','estimates','fund_ownership','insider_roster','insider_summary','insider_transactions','institutional_ownership'],
         'commodities': ['oil','natural_gas','heating_oil','jet_fuel','diesel','gas','propane'],
         'economic_data': ['daily_treasury_rates','cpi','cc_interest_rates','fed_fund_rate','real_gdp','imf','initial_claims','industrial_production_interest','mortgage_rates','total_housing_starts','total_payrolls','total_vehicle_sales','retail_money_funds','unemployment_rate','recession_probability']
     }
@@ -47,6 +47,9 @@ class IEXClient:
         return response.json()
 
     ### base api calls ###
+    def get_base(self):
+        return {ep: getattr(self,'get_%s' % ep)() for ep in self.ENDPOINTS['base']}
+
     def get_key_stats(self, **kwargs):
         return {k: round(v*100,2) if 'Percent' in k else v for k, v in self.fetch('stats', params=kwargs).items() if k in self.FIELDS['key_stats']} 
 		
@@ -78,7 +81,9 @@ class IEXClient:
         return self.fetch('estimates')['estimates'][0]
 
     def get_fund_ownership(self):
-        return pd.DataFrame(self.fetch('fund-ownership'))
+        df = pd.DataFrame(self.fetch('fund-ownership'))
+        df['reportDate'] = df['report_date']
+        return df[['entityProperName','adjHolding','adjMv','reportDate']]
 
     def get_insider_roster(self):
         return pd.DataFrame(self.fetch('insider-roster'))
@@ -90,19 +95,21 @@ class IEXClient:
         return pd.DataFrame(self.fetch('insider-transactions'))
 
     def get_institutional_ownership(self):
-        return pd.DataFrame(self.fetch('institutional-ownership'))
+        return pd.DataFrame(self.fetch('institutional-ownership'))[['entityProperName','adjHolding','adjMv','reportDate']]
 
     def get_historical_prices(self, **kwargs):
         return pd.DataFrame(self.fetch('chart', params=kwargs))
 
     def get_recommendation_trends(self):
-        return self.fetch('recommendation-trends')
+        r = self.fetch('recommendation-trends')[0]
+        r['buy'], r['sell'], r['hold'] =  r['ratingBuy'] + r['ratingOverweight'], r['ratingSell'] + r['ratingUnderweight'], r['ratingHold']
+        return r
         
     def get_news(self, **kwargs):
         return pd.DataFrame(self.fetch('news', params=kwargs))[self.FIELDS['news']]
 
     def get_previous_day_prices(self):
-        return {k:v for k, v in self.fetch('previous').items() if k != 'symbol'}
+        return pd.Series({k:v for k, v in self.fetch('previous').items() if k != 'symbol'})[self.FIELDS['daily']]
 
     def get_book(self):
         return self.fetch('book')
@@ -203,6 +210,3 @@ class IEXClient:
     
     def get_recession_probability(self):
         return self.fetch_market('RECPROUSM156N')
-
-ic = IEXClient()
-print(ic.get_economic_data())

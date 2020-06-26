@@ -17,6 +17,7 @@ def check_uris(uris):
 def rename_file(fname, directory):
     os.rename(os.path.join(directory,fname),os.path.join(directory,'_' + fname.split('.')[0] + '_' + str(len([f for f in os.listdir(directory) if f[0] == '_'])) +'.csv'))
 
+
 class TaskGenerator:
     def __init__(self):
         self.tasks = []
@@ -26,18 +27,17 @@ class TaskGenerator:
 
     def intraday_tasks(self, test=False):
         for sym, data in Firebase().get('schedule').items():
-            if sym == 'AMD':
-                for task, task_data in data.items():
-                    if task == 'intraday':
-                        for k, v in task_data.items():
-                            if v['execute']:
-                                new_uris = check_uris(v['uris'])
-                                for uri in new_uris:
-                                    self.tasks.append({'runtimes':[runtimes()],'task':Task('new_'+task+'_'+k,'ClientTask',  sym, **{'uri':uri, 'interval':v['interval']})})
-                                if not test:
-                                    self.tasks.append({'runtimes':runtimes(interval=v['interval']),'task':Task(task+'_'+k,'ClientTask',  sym, **{'interval':v['interval'], 'uris':[uri for uri in v['uris'] if uri not in new_uris]})})  
-                                else:
-                                    self.tasks.append({'runtimes':[runtimes()],'task':Task(task+'_'+k,'ClientTask',  sym, **{'interval':v['interval'], 'uris':[uri for uri in v['uris'] if uri not in new_uris]})})
+            for task, task_data in data.items():
+                if task == 'intraday':
+                    for k, v in task_data.items():
+                        if v['execute']:
+                            new_uris = check_uris(v['uris'])
+                            for uri in new_uris:
+                                self.tasks.append({'runtimes':[runtimes()],'task':Task('new_'+task+'_'+k,'ClientTask',  sym, **{'uri':uri, 'interval':v['interval']})})
+                            if not test:
+                                self.tasks.append({'runtimes':runtimes(interval=v['interval']),'task':Task(task+'_'+k,'ClientTask',  sym, **{'interval':v['interval'], 'uris':[uri for uri in v['uris'] if uri not in new_uris]})})  
+                            else:
+                                self.tasks.append({'runtimes':[runtimes()],'task':Task(task+'_'+k,'ClientTask',  sym, **{'interval':v['interval'], 'uris':[uri for uri in v['uris'] if uri not in new_uris]})})
         return self.tasks
     
     def daily_tasks(self, test=False):
@@ -64,13 +64,22 @@ class TaskGenerator:
         self.tasks += [{'runtimes':['15:05' if not test else runtimes()], 'task' : Task('new', 'ClientTask', sym, **data)} for sym, data in Firebase().get('new').items() if sym != 'Dummy2']
         return self.tasks
     
-    def daily_archive_tasks(self, test=False):
-        for sym, data in Firebase().get('schedule').items():
-            self.tasks.append({'runtimes':[runtimes()], 'task': Task('archive_daily','ClientTask', sym, **{'uris': [data['daily']['uris'][1], data['archive']['uris'][0]]})})
-        return self.tasks
-    
     def dynamic_archive_tasks(self, test=False):
         for sym, data in Firebase().get('schedule').items():
-            if sym == 'BAC':
-                self.tasks.append({'runtimes':[runtimes()], 'task': Task('archive_dynamic','ClientTask', sym, **{'uris': [data['intraday']['options']['uris'][0], data['archive']['uris'][1]]})})
+            self.tasks.append({'runtimes':[runtimes()], 'task': Task('archive_dynamic','ClientTask', sym, **{'uris': [data['intraday']['options']['uris'][0], data['archive']['uris'][0]]})})
         return self.tasks
+    
+    def archive_timeseries_tasks(self, test=False):
+        for sym, data in Firebase().get('schedule').items():
+            self.tasks.append({'runtimes':[runtimes()], 'task': Task('archive_timeseries','ClientTask', sym, **{'uris': [data['archive']['uris'][0]]})})
+        return self.tasks
+
+    def average_volume_tasks(self, test=False):
+        for sym, data in Firebase().get('schedule').items():
+            for uri in data['averages']['uris']:
+                interval = uri.split('.')[0].split('_')[-1]
+                self.tasks.append({'runtimes':[runtimes()], 'task': Task('average_volume', 'ClientTask', sym, **{'interval':interval,'uris': [data['intraday']['historicals']['uris'][0] if interval == '10' else (data['intraday']['historicals']['uris'][1] if interval == '30' else data['daily']['uris'][0])]})})
+        return self.tasks
+    
+    def scorecard_tasks(self, test=False):
+        return

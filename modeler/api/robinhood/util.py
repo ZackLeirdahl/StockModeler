@@ -4,12 +4,6 @@ import scipy.stats as si
 from dateutil.parser import parse
 from datetime import datetime
 
-def join(arr, delim='_'):
-    return delim.join([str(x) for x in arr])
-
-def fullpath(arg_arr, subroot='', ext='.csv', root='storage'):
-    return join([join([root,subroot,''],'\\'),join(arg_arr),ext],'') if subroot != '' else join([root,join([join(arg_arr),ext],'')],'\\')
-
 def user_input():
     print('Input challenge code from SMS')
     return str(input())   
@@ -51,3 +45,6 @@ def black_scholes(p, s, t, r, iv, type = 'call'):
     d1 = (np.log(p / s) + (r + 0.5 * iv ** 2) * t) / (iv * np.sqrt(t))
     d2 = (np.log(p / s) + (r - 0.5 * iv ** 2) * t) / (iv * np.sqrt(t))
     return (p * si.norm.cdf(d1, 0.0, 1.0) - s * np.exp(-r * t) * si.norm.cdf(d2, 0.0, 1.0)) if type == 'call' else (s * np.exp(-r * t) * si.norm.cdf(-d2, 0.0, 1.0) - p * si.norm.cdf(-d1, 0.0, 1.0))
+
+def format_strike(strike):  
+    return '.'.join([strike.split('.')[0], strike.split('.')[-1][0] + '000']) if len(strike.split('.')) > 1 else strike + '.0000'

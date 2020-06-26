@@ -3,35 +3,37 @@ import pandas as pd
 try:
     from client import Client
     from client_methods import ClientMethods
-    from chain import Chain
     from util import dte, black_scholes
     from wrappers import filter_option_orders, filter_stock_orders, filter_options_positions
 except:
     from .client import Client
     from .client_methods import ClientMethods
-    from .chain import Chain
     from .util import dte, black_scholes
     from .wrappers import filter_option_orders, filter_stock_orders, filter_options_positions
 
 
 class Portfolio:
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         self.client = Client()
-    
-    def account(self):
+        self.data = getattr(self,'get_%s' % args[0])(**kwargs) if len(args) > 0 else None
+
+    def get_account(self):
         return ClientMethods.fetch_account(self.client)
 
-    def portfolio(self):
+    def get_portfolio(self):
         return ClientMethods.fetch_portfolio(self.client)
 
-    def equity(self):
-        return self.portfolio()['equity']
+    def get_equity(self):
+        return self.get_portfolio()['equity']
     
-    def market_value(self):
-        return self.portfolio()['market_value']
+    def get_market_value(self):
+        return self.get_portfolio()['market_value']
     
-    def cash(self):
-        return self.account()['portfolio_cash']
+    def get_cash(self):
+        return float(self.get_account()['portfolio_cash'])
+
+    def get_stock_equity(self):
+        return sum(ClientMethods.fetch_stock_positions(self.client)['equity'].to_list())
 
     @filter_option_orders
     def get_option_orders(self, **kwargs):
@@ -42,7 +44,7 @@ class Portfolio:
             the state of the option order, default is ('confirmed'), others are 'unconfirmed','filled','cancelled', None. If None, will ignore the state
         opening_strategy : str, optional
             the strategy of the order to get, if None, will ignore the opening_strategy, (default is None), others are 'iron_condor'
-        symbol : str, optional
+        chain_symbol : str, optional
             the symbol to get orders for, works along with other params, (default is None), if None, will ignore
         ids : bool, optional
             if True, will return the option ids for the resulting orders (default is False)
@@ -73,28 +75,6 @@ class Portfolio:
         """
         return ClientMethods.fetch_all_stock_orders(self.client)
 
-    def get_option_leg(self, symbol, expiration, strike, type, side, position_effect, ratio_quantity=1):
-        """A method for getting the formatted option leg for placing an order.
-        Parameters
-        ----------
-        expiration : str, int
-            the expiration date of the option
-        strike : str, int
-            the strike price for the option
-        type : str
-            the type of option
-        side : str
-            the side of the option to take ('buy','sell')
-        position_effect : str
-            the action to take on the option ('open','close')
-        Returns
-        -------
-        list
-            a list of dictionaries with the data needed for the order to be placed
-        """
-        chain = Chain(symbol)
-        return [{'option': chain.get_option_url(strike, expiration, type), 'side': side, 'position_effect': position_effect, 'ratio_quantity': ratio_quantity}]
-    
     @filter_options_positions
     def get_option_positions(self, **kwargs):
         """A method for getting current option positions
@@ -108,14 +88,62 @@ class Portfolio:
             if True, will return the option ids for the requested position (default is False)
         Returns
         -------
-        list
-            a list of dictionaries with info on the option positions
+        pd.DataFrame
+            a data frame of the option positions that meet the parameters
         """
         return ClientMethods.fetch_option_positions(self.client)
 
-    def get_theoretical_mark_of_positions(self):
-        data = [ClientMethods.fetch_by_id(self.client,id) for id in self.get_option_positions(ids=True)]
+    def get_theoretical_mark_of_positions(self, **kwargs):
+        """ A method to get the theoretical mark price of current positions
+        Returns
+        -------
+        pd.DataFrame
+            a dataframe of each option and other data including the theoretical mark
+        """
+        positions = self.get_option_positions(ids=True)
+        data = [ClientMethods.fetch_by_id(self.client,id) for id in positions['id']]
         prices = {sym: ClientMethods.fetch_price(self.client, sym) for sym in list(pd.DataFrame(data)['chain_symbol'].unique())}
         for option in data:
             option['theoretical_mark'] = black_scholes(prices[option['chain_symbol']],float(option['strike_price']), dte(option['expiration_date'])/365,.0094,float(option['implied_volatility']), option['type'])
-        return pd.DataFrame(data)[['chain_symbol','strike_price','expiration_date','theoretical_mark','mark_price','volume','open_interest']]
+        res = pd.merge(pd.DataFrame(data),positions, on='instrument')[['chain_symbol','strike_price','type','side','quantity','expiration_date','theoretical_mark','mark_price','volume','open_interest']]
+        res['theoretical_value'] = [float(r['theoretical_mark'])*float(r['quantity']) for i, r in res.iterrows()]
+        return res
+
+    def get_theoretical_value_of_positions(self, **kwargs):
+        """ A method to get the theoretical value of each position grouped by symbol and type (call or put)
+        Returns
+        -------
+        pd.DataFrame
+            a dataframe of the theoretical value of each position
+        """
+        data = self.get_theoretical_mark_of_positions()
+        res = {sym: {} for sym in list(data['chain_symbol'].unique())}
+        for sym in list(data['chain_symbol'].unique()):
+            for t in data[(data['chain_symbol'] == sym)]['type'].unique():
+                res[sym][t] = data[(data['chain_symbol'] == sym) & (data['type'] == t)].groupby(['side'])['theoretical_value'].sum().to_dict()
+        return pd.DataFrame([[k, t, tv.get('long',0) - tv.get('short',0)] for k, v in res.items() for t, tv in v.items()], columns = ['symbol','type','value'])
+
+    def get_theoretical_value_of_portfolio(self, **kwargs):
+        """ A method to get the theoretical value of the portfolio
+        Returns
+        -------
+        float
+            the theoretical value of the portfolio
+        """
+        return round(sum(self.get_theoretical_value_of_positions()['value'].to_list()) * 100 + self.get_cash() + self.get_stock_equity(),2)
+
+    def get_put_call_ratio(self, **kwargs):
+        """ A method to get the long and short value for the symbol and the long to short ratio
+        Parameters
+        ----------
+        symbol : str, optional
+            the symbol to get put call ratio for, if None will return for the entire portfolio
+        Returns
+        -------
+        list
+            a list of dictionaries where each is the result for the given parameters
+        """
+        df = pd.DataFrame(self.get_option_positions(symbol=symbol) if symbol else self.get_option_positions())
+        df['mark_price'] = df['mark_price'].astype('float64')
+        res = df.groupby(['type'])[['mark_price']].sum().to_dict()
+        return [symbol if symbol else None,{**{k: round(v,3) for k, v in res['mark_price'].items()},**{'long_short_ratio': round(res['mark_price']['long']/res['mark_price']['short'],2)}}]
