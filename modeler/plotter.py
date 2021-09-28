@@ -1,22 +1,51 @@
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+from matplotlib.dates import DateFormatter
 from firebase import Firebase
 
 def plot(func):
-    def wrapper(obj, **kwargs):
-        df = func(obj, **kwargs)
-        df.plot()
+    def wrapper(self):
+        df = func(self)
+        #df.plot(kind=self.kind, linestyle=self.linestyle, subplots=self.subplots, stacked=self.stacked)
+        plt.plot(df[self.index], df[self.lines], )
         plt.show()
         return None
     return wrapper
 
-@plot
-def plot_line(obj, **kwargs):
-    df = Firebase().get(obj).head(kwargs.get('num_rows'))[[kwargs.get('index')]+kwargs.get('lines')] if not isinstance(obj,pd.DataFrame) else obj.head(kwargs.get('num_rows'))[[kwargs.get('index')]+kwargs.get('lines')]
-    df.index = df[kwargs.get('index')]
-    return df
+class Plotter:
+    def __init__(self, *args, **kwargs):
+        self.df = Firebase().get(args[0]) if not isinstance(args[0],pd.DataFrame) else args[0]
+        self.num_rows = self.df.shape[0] if not kwargs.get('num_rows') else kwargs['num_rows']
+        self.lines = list(self.df.columns)[1:] if not kwargs.get('lines') else kwargs['lines']
+        self.index = list(self.df.columns)[0] if not kwargs.get('index') else kwargs['index']
+        self.kind = 'line' if not kwargs.get('kind') else kwargs['kind']
+        self.linestyle = 'solid' if not kwargs.get('linestyle') else kwargs['linestyle']
+        self.stacked = False if not kwargs.get('stacked') else kwargs['stacked']
+        self.subplots = False if not kwargs.get('subplots') else kwargs['subplots']
+        self.shape_data()
+    
+    @plot
+    def shape_data(self):
+        df = self.df.head(self.num_rows)[[self.index]+self.lines]
+        df.index = df[self.index].astype('datetime64') if self.kind == 'line' and self.index == 'date' else df[self.index]
+        return df
 
+#df = pd.read_csv('AMD_technicals_daily.csv')
 
+#Plotter(df, lines = ['rsi','wr','macd'],subplots=True)
+#Plotter(df, lines = ['volume','vma_20','vma_50','vma_200'])
+#Plotter('options/AMD_options_timeseries.csv', kind='bar', stacked=False, lines = ['call_volume','put_volume'])
+Plotter('options/AMD_options_timeseries.csv', kind='line',linestyle='dotted', lines = ['volume'])
+Plotter('options/AMD_options_timeseries.csv', kind='line',linestyle='dotted', lines = ['volume'])
+""" kwargs
+    num_rows : number of rows to include in plot 
+    lines : a list of the column names to include in the line plot
+    index : the index to set as the x axis on the line plot
+    kind : 'line', ‘bar’,’barh’,’pie’,’scatter’,’kde’ etc which can be found in the docs.
+    linestyle : ‘solid’, ‘dotted’, ‘dashed’ (applies to line graphs only)
+    subplots : bool, if True will break into subplots - default is False
+"""
 
 
 """ TO DO

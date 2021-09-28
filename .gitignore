@@ -143,3 +143,14 @@ modeler/technical_analysis/__pycache__/util.cpython-37.pyc
 modeler/api/robinhood/__pycache__/orders.cpython-37.pyc
 robinhood_auth.json
 modeler/api/__pycache__/timeseries_archive.cpython-37.pyc
+robinhood_auth.json
+modeler/api/__pycache__/scorecard.cpython-37.pyc
+modeler/api/technical_analysis/__pycache__/__init__.cpython-37.pyc
+modeler/api/technical_analysis/__pycache__/firebase.cpython-37.pyc
+modeler/api/technical_analysis/__pycache__/indicators.cpython-37.pyc
+modeler/api/technical_analysis/__pycache__/overlays.cpython-37.pyc
+modeler/api/technical_analysis/__pycache__/scorecard.cpython-37.pyc
+modeler/api/technical_analysis/__pycache__/signals.cpython-37.pyc
+modeler/api/technical_analysis/__pycache__/technicals.cpython-37.pyc
+modeler/api/technical_analysis/__pycache__/unsupervised.cpython-37.pyc
+modeler/api/technical_analysis/__pycache__/util.cpython-37.pyc

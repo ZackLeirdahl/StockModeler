@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+
+{% block header %}
+
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <div class="filter"></div>
+  <div class="container">
+    <div class="row">
+      <div class="col-lg-4 ml-auto mr-auto">
+        <div class="card card-register">
+          <h3 class="title mx-auto">Welcome</h3>
+          <form method="post" id="login-form" class="login-form">
+            <label>Email</label>
+            <input type="email" name="username" class="form-control" placeholder="Email" id="login-form-email">
+            <label>Password</label>
+            <input type="password" name="password" class="form-control" placeholder="Password" minlength="1">
+            <button type="submit" form="login-form" formaction="" class="btn btn-danger btn-block btn-round" id="loginSumbit">Sign In</button>
+          </form>
+          <div class="forgot">
+            <div data-toggle="modal" data-target="#registerModal" class="btn btn-link btn-danger">Need an account?</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer register-footer text-center">
+    <h6>©
+      <script>
+        document.write(new Date().getFullYear())
+      </script> by Zack Leirdahl</h6>
+  </div>
+</div>
+<div class="modal fade" id="registerModal" tabindex="-1" role="dialog" aria-labelledby="registerModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="card card-register">
+      <h3 class="title mx-auto">Register</h3>
+      <form method="post" id="register-form" class="registration-form">
+        <label>Email</label>
+        <input type="text" name="username" class="form-control" placeholder="Email">
+        <label>Password</label>
+        <input type="password" name="password" class="form-control" placeholder="Password">
+        <button type="submit" form="login-form" formaction="" class="btn btn-danger btn-block btn-round">Sign Up</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

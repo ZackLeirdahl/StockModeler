@@ -48,7 +48,7 @@ class Historicals(IEXClient):
         if self.interval == 'dynamic':
             return pd.DataFrame(self.get_historical_prices(range='dynamic',includeToday=False).to_dict()['data']).transpose()
         if not isinstance(self.df,pd.DataFrame):
-            return self.get_historical_prices(range='5y',includeToday=False) if self.interval == 'daily' else (pd.concat([self.get_historical_prices(range='date', exactDate=d, chartByDay=False) for d in get_last_week_dates()]) if self.interval == 'minute' else (self.get_historical_prices(range='1mm',includeToday=True) if self.interval == '30' else self.get_historical_prices(range='5dm',includeToday=True)))
+            return self.get_historical_prices(range='5y',includeToday=True) if self.interval == 'daily' else (pd.concat([self.get_historical_prices(range='date', exactDate=d, chartByDay=False) for d in get_last_week_dates()]) if self.interval == 'minute' else (self.get_historical_prices(range='1mm',includeToday=True) if self.interval == '30' else self.get_historical_prices(range='5dm',includeToday=True)))
         if is_date(kwargs.get('range')) and kwargs.get('interval') == 'minute':
             return pd.DataFrame(self.get_historical_prices(range='date', exactDate=kwargs['range'], chartByDay=False))
         if kwargs.get('range') == 'backfill' and kwargs.get('interval') == 'minute':

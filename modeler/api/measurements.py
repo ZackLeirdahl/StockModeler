@@ -31,7 +31,7 @@ class ChainMeasurements(Chain):
         if True, will blank out volume for a cumulative summary (default is false)
     """
 
-    fields = ['id','expiration_date','type','strike_price','implied_volatility','open_interest','volume','time_stamp']
+    FIELDS = ['id','expiration_date','type','strike_price','implied_volatility','open_interest','volume','time_stamp']
 
     def __init__(self, *args, **kwargs):
         Chain.__init__(self, args[0])
@@ -40,4 +40,4 @@ class ChainMeasurements(Chain):
 
     @clean_frame
     def get_frame(self, **kwargs):
-        return self.df.append(self.options[self.fields]) if self.df is not None else self.options[self.fields]
+        return self.df.append(self.options[self.FIELDS]) if self.df is not None else self.options[self.FIELDS]

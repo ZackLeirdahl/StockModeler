@@ -9,13 +9,13 @@ try:
     from client import Client
     from endpoints import stock, option_chain
     from util import dte, black_scholes, format_strike
-    from wrappers import populate_queue, append_timestamp, latest_price, filter_fields
+    from wrappers import populate_queue, append_fields, latest_price, filter_fields, filter_fields_liquid
 except:
     from .client_methods import ClientMethods
     from .client import Client
     from .endpoints import stock, option_chain
     from .util import dte, black_scholes, format_strike
-    from .wrappers import populate_queue, append_timestamp, latest_price, filter_fields
+    from .wrappers import populate_queue, append_fields, latest_price, filter_fields, filter_fields_liquid
 
 class Chain:
     def __init__(self, symbol, populate=True):
@@ -23,7 +23,7 @@ class Chain:
         self.stock_id = self.client.get(stock(self.symbol))['results'][0]['id']
         self.options = self.build_chain() if populate else None
             
-    @append_timestamp
+    @append_fields
     def build_chain(self):
         self.q = Queue(maxsize=0)
         self.initialize_chain()
@@ -34,7 +34,7 @@ class Chain:
     @latest_price
     @populate_queue
     def initialize_chain(self):
-        return self.client.get(option_chain(), params={'equity_instrument_ids':self.stock_id})['results'][0]
+        return self.client.get(option_chain(), params={'equity_instrument_ids':self.stock_id})['results'][-1]
     
     def thread_factory(self):
         for thread in [Thread(target=self.process_q) for i in range(self.num_threads)]:
@@ -133,6 +133,25 @@ class Chain:
         """
         return round(self.get_options_with_limit()['implied_volatility'].astype('float64').mean(),4)
 
+    @filter_fields_liquid
+    def get_liquid_options(self, type='call', expiration=None, limit=10):
+        """ A method to get the most liquid options in the chain.
+        Parameters
+        ----------
+        type : str, optional
+            the type of option, default is 'call'
+        expiration : str, optional
+            if a valid expiration date, will return the most active option for that expiration(s), if None will return the most active option(s) for the entire chain (default is None)
+            str --> valid date string
+        limit : int, optional
+            the number of options to return, default is 10
+        Returns
+        -------
+        pandas.DataFrame
+            a dataframe of the most liquid options
+        """
+        return (self.options[(self.options['type'] == type) & (self.options['expiration_date'] == parse(expiration).strftime('%Y-%m-%d'))] if expiration else self.options[self.options['type']==type]).sort_values(by=['volume','vol_oi_ratio','bid_ask_spread'], ascending=[False,False,True]).head(limit)
+
     def get_option_spread(self):
         """ A method to get the spread for the option chain
         Returns
@@ -141,7 +160,7 @@ class Chain:
             A DataFrame of the spread information
         """
         data = {**{k + '_' + measure: v  for measure in ['volume','open_interest'] for k, v in self.options.groupby(['type'])[measure].sum().to_dict().items()},**{measure: self.options[measure].sum() for measure in ['volume','open_interest']}}
-        data['put_call_ratio'] = data['call_volume']/data['put_volume']
+        data['call_put_ratio'] = data['call_volume']/data['put_volume']
         return pd.DataFrame([data])
 
     def get_theoretical_mark(self, strike, exp, type = 'call'):
@@ -161,12 +180,12 @@ class Chain:
         """
         return black_scholes(float(self.price), float(strike), dte(exp)/365, .0094, float(self.options[(self.options['type'] == type) & (self.options['strike_price'] == str(strike) + '.0000' if len(str(strike).split('.')) == 1 else str(strike) + '000') & (self.options['expiration_date'] == parse(exp).strftime('%Y-%m-%d'))].to_dict('records')[0]['implied_volatility']), type)
 
-#start = time.time()
+""" TO DO
+- create a method to get highest volume - open interest ratio
+    - volume must meet a threshold
+"""
+
 #c = Chain('AMD')
-#print(c.get_active_options(option_type='call',limit=5))
-#print(c.get_active_options(limit=5, option_type='put'))
-#print(c.get_option_spread())
-#print(time.time() - start)
-#print(c.get_theoretical_mark('60','2020-06-05'))
-#print(c.get_average_implied_volatility())
-#print(c.get_max_pain())
+#print(c.get_liquid_options(type='call', expiration='10-15-2021'))
+#print(c.get_max_pain(expirations=2))
+#print(c.get_active_options(expiration='09-03-2021', limit = 10))

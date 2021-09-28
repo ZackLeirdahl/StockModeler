@@ -17,11 +17,9 @@ def average_up_dn(up_dn, series, position, n):
 def convert_binary(series):
     return (series.apply(lambda x: 1 if x == 1 else 0), series.apply(lambda x: 1 if x == -1 else 0))
 
-def convert_ntile(series, n=4, abs_val=False):
+def convert_ntile(series, n=4, abs_val=True):
     df = pd.DataFrame(series)
-    ntiles = pd.qcut(series if not abs_val else series.apply(lambda x: abs(x)), n, labels=[i+1 for i in range(n)], retbins=False, duplicates='drop')
+    ntiles,bins = pd.qcut(series if not abs_val else series.apply(lambda x: abs(x)), n, labels=[i+1 for i in range(n)], retbins=True, duplicates='drop')
     for i in range(n):
-        df['_'.join([series.name,'nt',str(i+1)])] = ntiles.apply(lambda x: 1 if x==i+1 else 0)
-    return df[['_'.join([series.name,'nt',str(i+1)]) for i in range(n)]]
-
-
+        df['_'.join([series.name,'nt',str(i+1),str(round(bins[i+1] if i <n-1 else 2*bins[i],2))])] = ntiles.apply(lambda x: 1 if x==i+1 else 0)
+    return df[['_'.join([series.name,'nt',str(i+1),str(round(bins[i+1] if i <n-1 else 2*bins[i],2))]) for i in range(n)]]

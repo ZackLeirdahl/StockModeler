@@ -8,6 +8,7 @@ try:
     from measurements import ChainMeasurements
     from timeseries_archive import TimeSeriesArchive
     from scorecard import Scorecard
+    from scorecard_analyzer import ScorecardAnalyzer
     from util import convert_timestamp, number_timestamps
 except:
     from .historicals import Historicals
@@ -16,6 +17,7 @@ except:
     from .measurements import ChainMeasurements
     from .timeseries_archive import TimeSeriesArchive
     from .scorecard import Scorecard
+    from .scorecard_analyzer import ScorecardAnalyzer
     from .util import convert_timestamp, number_timestamps
 
 artifacts = ['fundamentals', 'analyst', 'insider_summary', 'insider_roster', 'insider_transactions', 'fund_ownership', 'institutional_ownership', 'dividends']
@@ -27,8 +29,6 @@ def get_record(records):
 def finish_blob(func):
     def wrapper(self):
         data = func(self)
-        if self.kwargs.get('to_file',False):
-            data['df'].to_csv(''.join(['downloads\\','_'.join([self.symbol,data['root'],data['descriptor']] if data['descriptor'] else [self.symbol,data['root']]), '.csv']), index=False)
         data['uri'] = ''.join([data['root'],'/','_'.join([self.symbol,data['root'],data['descriptor']] if data['descriptor'] else [self.symbol,data['root']]), '.csv'])
         return data
     return wrapper
@@ -45,21 +45,11 @@ class API:
         self.outputs = self.start_task()
 
     def start_task(self):
-        if self.task == 'average_volume':
-            return self.average_periodic_volume()
-        if self.task == 'intraday_historicals':
-            return self.intraday_historicals()
-        if self.task == 'company_data':
-            return self.document_task()
-        if self.task == 'archive_daily':
-            return self.archive_daily()
-        if self.task == 'archive_dynamic':
-            return self.archive_dynamic()
-        return self.blob_task()
+        return self.average_periodic_volume() if self.task == 'average_volume' else (self.intraday_historicals() if self.task == 'intraday_historicals' else (self.document_task() if self.task == 'company_data' else (self.archive_dynamic() if self.task == 'archive_dynamic' else self.blob_task())))
 
     @finish_blob
     def blob_task(self):
-        obj = ChainMeasurements(self.symbol, input=self.input, interval=self.kwargs.get('interval'), dummy=self.kwargs.get('dummy')) if self.task == 'options' else (Historicals(self.symbol, **{**self.kwargs,**{'input':self.input}}) if self.task == 'historicals' else (TimeSeriesArchive(self.symbol, self.input) if self.task == 'archive_timeseries' else (Scorecard(self.input, self.kwargs.get('interval'), **self.kwargs) if self.task == 'scorecard' else Artifacts(self.symbol, self.task, input=self.input))))
+        obj = ChainMeasurements(self.symbol, input=self.input, interval=self.kwargs.get('interval'), dummy=self.kwargs.get('dummy')) if self.task == 'options' else (Historicals(self.symbol, **{**self.kwargs,**{'input':self.input}}) if self.task == 'historicals' else (TimeSeriesArchive(self.symbol, self.input) if self.task == 'archive_timeseries' else (Scorecard(self.input, self.kwargs.get('interval'), **self.kwargs) if self.task == 'scorecard' else (ScorecardAnalyzer(self.input, self.kwargs.get('interval'), **self.kwargs) if self.task == 'score' else Artifacts(self.symbol, self.task, input=self.input)))))
         return obj.data
     
     @finish_document

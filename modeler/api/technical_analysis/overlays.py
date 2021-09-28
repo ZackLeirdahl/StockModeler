@@ -16,7 +16,7 @@ class _Overlay(Signal):
 
     def additional_columns(self, df):
         col = df[self.name]
-        dx =  [np.nan for i in range(self.n)] + [1 if col[i-1] < col[i] else -1 for i in range(self.n, len(col))]
+        dx = [np.nan for i in range(self.n)] + [1 if col[i-1] < col[i] else -1 for i in range(self.n, len(col))]
         inflection = [np.nan for i in range(self.n)] + [1 if dx[i-1] < dx[i] else (-1 if dx[i-1] > dx[i] else 0) for i in range(self.n, len(col))]
         pct_of_val = [np.nan for i in range(self.n)] + [round(100*(col[i]/self.series[i]),2) for i in range(self.n, len(col))]
         df[self.name+'_dx'], df[self.name+'_inflx'], df[self.name+'_pctOfval'] = dx, inflection, pct_of_val

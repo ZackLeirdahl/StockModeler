@@ -8,9 +8,9 @@ from firebase_admin import initialize_app, credentials, firestore, storage
 def check_exists(func):
     @wraps(func)
     def wrapper(self, uri, **kwargs):
-        if 'storage_files' not in dir(self):
-            self.storage_files = self._list_files()
-        self.file_exists = uri in self.storage_files
+        if 'storage_uris' not in dir(self):
+            self.storage_uris = self.list_uris()
+        self.uri_exists = uri in self.storage_uris
         return func(self, uri, **kwargs)
     return wrapper
 
@@ -90,12 +90,18 @@ class Firebase:
     
     @check_exists
     def _download_to_df(self, uri):
-        return False if not self.file_exists else pd.read_csv(StringIO(self.bucket.blob(uri).download_as_string().decode()), usecols=lambda x: x not in ['Unnamed: 0'])
+        return False if not self.uri_exists else pd.read_csv(StringIO(self.bucket.blob(uri).download_as_string().decode()), usecols=lambda x: x not in ['Unnamed: 0'])
 
     @check_exists
     def _download_to_file(self, uri, root='downloads'):
         self.bucket.blob(uri).download_to_filename('/'.join([root,uri.split('/')[-1]]))
-        return False if not self.file_exists else '/'.join([root,uri.split('/')[-1]])
+        return False if not self.uri_exists else '/'.join([root,uri.split('/')[-1]])
 
-    def _list_files(self, directory=None):
-        return [b.name for b in self.bucket.list_blobs()] if directory == None else ([b.name for b in self.bucket.list_blobs() if b.name.split('/')[0] == directory])
+    def list_uris(self, directory=None):
+        return [b.name for b in self.bucket.list_blobs()][1:] if directory == None else ([b.name for b in self.bucket.list_blobs() if b.name.split('/')[0] == directory][1:])
+
+    def list_files(self, directory=None):
+        return [f.split('/')[-1].split('.')[0] for f in self.list_uris(directory=directory)]
+    
+    def extract_keys(self, directory=None, descriptor=None):
+        return [f.split('_')[0] for f in self.list_files(directory=directory)] if not descriptor else [f.split('_')[0] for f in self.list_files(directory=directory) if f.split('_')[-1] == descriptor]

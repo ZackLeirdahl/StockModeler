@@ -12,14 +12,15 @@ def cut(series, n=10):
 
 def finish(func):
     def wrapper(self):
-        self.sc = func(self)
+        #self.sc = func(self)
+        self.sc = pd.merge(self.df.iloc[:,:self.df.shape[1]-2],func(self), on='date') if self.descriptor == 'daily' else pd.merge(self.df.iloc[:,:self.df.shape[1]-2],func(self), on=['date','minute'])
         return {'root': self.root, 'descriptor': self.descriptor, 'df': self.sc}
     return wrapper
 
 class Scorecard:
     def __init__(self, *args, **kwargs):
         self.df, self.descriptor, self.root = args[0], args[1], 'scorecard'
-        self.sc = Technicals(args[0], change_only=True, ntiles=kwargs.get('ntiles'), include_time=kwargs.get('include_time',True)).df
+        self.sc = Technicals(args[0], change_only=True, ntiles=kwargs.get('ntiles',4), include_time=kwargs.get('include_time',True)).df
         self.filters = [('con', "x == ['up'] or x == ['down']"),('ant_len', "x == 1")]
         self.indicator_buckets = [('momentum',['rsi','wr','stoch_k','stoch_d','tsi','ao','mfi','uo']),('other',['macd','trix','cci','aroon','kst','bb','kc','cmf'])]
         self.data = self.scorecard()
@@ -63,3 +64,6 @@ class Scorecard:
         df['_'.join([ovl,str(per), 'dx','up'])] = df['_'.join([ovl,str(per), 'dx','up'])].apply(lambda x: dir_up if x == 1 else 0)
         df['_'.join([ovl,str(per), 'dx','down'])] = df['_'.join([ovl,str(per), 'dx','down'])].apply(lambda x: dir_down if x == 1 else 0)
         return df.iloc[:,-4:]
+#df = pd.read_csv('AMD_historicals_daily.csv')
+#sc = Scorecard(df, 'daily', ntiles=4)
+#sc.sc.to_csv('AMD_scoredcard_ntiles_daily.csv',index=False)

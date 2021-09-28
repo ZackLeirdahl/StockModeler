@@ -20,8 +20,8 @@ def technicals(uri, **kwargs):
     t = Technicals(Firebase().get(uri), **kwargs)
     return t.df
 
-def scorecard(uri, **kwargs):
-    s = Scorecard(Firebase().get(uri), **kwargs)
+def scorecard(uri, descriptor, **kwargs):
+    s = Scorecard(Firebase().get(uri), descriptor, **kwargs)
     return s.scorecard()
 
 def artifacts():
@@ -55,6 +55,9 @@ def timeseries_archive(symbol):
 def scorecard_task(symbol, interval):
     do_task(Task('scorecard','ClientTask', symbol, **{'uris': ['historicals/{}_historicals_{}.csv'.format(symbol,interval)], 'interval':interval}))
 
+def score_task(symbol, interval):
+    do_task(Task('score', 'ClientTask',symbol, **{'uris': ['scorecard/{}_scorecard_{}.csv'.format(symbol,interval)], 'interval':interval}))
+
 def begin():
     robinhood_client()
     post(api('AMD','options',(), interval='dynamic'))
@@ -73,17 +76,26 @@ def post(data):
         Firebase().post(data['collection'], data['key'], data['data'])
 
 
+
+
+#post(api('AMD','options',(), interval='dynamic'))
+#post(api('NOK','options',(), interval='dynamic'))
+#post(api('RBLX','options',(), interval='dynamic'))
+#post(api('TLRY','options',(), interval='dynamic'))
+#post(api('CLOV','options',(), interval='dynamic'))
+#robinhood_client()
 #begin()
+#post(api('NOK','options',get('options/NOK_options_dynamic.csv'), interval='dynamic'))
 post(api('AMD','options',get('options/AMD_options_dynamic.csv'), interval='dynamic'))
+#post(api('RBLX','options',get('options/RBLX_options_dynamic.csv'), interval='dynamic'))
+#post(api('CLOV','options',get('options/CLOV_options_dynamic.csv'), interval='dynamic'))
 #finish()
-
-
+#print(Firebase().extract_keys())
 """ historicals """
 #historicals('AMD',new=True)
 #historicals('AMD',interval='dynamic')
-#historicals('AMD',new=True, interval='minute')
 #historicals('AMD',new=True, interval=30)
-#historicals('AMD',interval=10).to_csv('AMD_historicals_10.csv', index=False)
+#historicals('AMD',interval=10).to_csv('AMD_historicals_10.csv', index=Fal#e)
 
 """ measurements """
 #measurements('AMD',interval='dynamic')
@@ -92,42 +104,52 @@ post(api('AMD','options',get('options/AMD_options_dynamic.csv'), interval='dynam
 """ technicals """
 #technicals('historicals/AMD_historicals_daily.csv')
 #print(technicals('historicals/AMD_historicals_daily.csv', overlays=False))
-#technicals('historicals/AMD_historicals_daily.csv', indicators=False)
+#technicals('historicals/AMD_historicals_daily.csv').to_csv('AMD_technicals_daily.csv',index=False)
 #technicals('historicals/AMD_historicals_daily.csv', change_only=True)
-#technicals('historicals/AMD_historicals_daily.csv', vals_only=False)
+#technicals('historicals/AMD_historicals_daily.csv', vals_only=False).to_csv('AMD_technicals_daily.csv',index=False)
 #technicals('historicals/AMD_historicals_daily.csv', vals_only=False, include_historicals=False)
 
 """ scorecard """
 #scorecard('historicals/AMD_historicals_10.csv').to_csv('AMD_scorecard_10.csv',index=False)
-#scorecard('historicals/AMD_historicals_daily.csv').to_csv('AMD_scorecard_daily.csv',index=False)
-
+#scorecard('historicals/AMD_historicals_daily.csv', 'daily').to_csv('AMD_scorecard_daily.csv',index=False)
+#0
 """ api """
-#api('AMD','historicals',(), interval='dynamic')
-#post(api('AMD','historicals',(), interval='daily'))
-#post(api('AMD','options',(), interval='dynamic'))
-
-#post(api('AMD','options',(), interval='daily'))
-##api('AMD','company_data',(), collection='company')
+#post(api('AMD','analyst',()))
+#post(api('AMD','historicals',(), interval='minute'))
 #post(api('AMD','historicals',(), interval='10'))
+#post(api('AMD','options',(), interval='dynamic'))
+#get('scorecard/AMD_scorecard_daily.csv').to_csv('AMD_scorecard_daily.csv',index=False)
+#post(api('AMD','historicals',(), interval='daily'))
+##api('AMD','company_data',(), collection='company')
+#post(api('AMD','historicals',(), interval='minute'))
 #post(api('AMD','options',get('options/AMD_options_dynamic.csv'), interval='dynamic'))
-#post(api('AMD','historicals',(),interval='10'))
+#post(api('AMD','historicals',(),interval='daily'))
 #robinhood_client()
 #api('AMD','options',(), interval='dynamic')
 #get('historicals/AMD_historicals_daily.csv').to_csv('AMD_historicals_daily.csv',index=False)
-#get('historicals/AMD_historicals_10.csv').to_csv('AMD_historicals_10.csv',index=False)
-#get('historicals/AMD_historicals_30.csv').to_csv('AMD_historicals_30.csv',index=False)
+#get('historicals/AMD_historicals_minute.csv').to_csv('AMD_historicals_minute.csv',index=False)
+#get('scorecard/AMD_scorecard_daily.csv').to_csv('AMD_scorecard_daily.csv',index=False)
+#get('scorecard/AMD_scorecard_minute.csv').to_csv('AMD_scorecard_minute.csv',index=False)
 #get('options/AMD_options_timeseries.csv').to_csv('AMD_options_timeseries.csv', index=False)
 #get('options/AMD_options_dynamic_archive.csv').to_csv('AMD_options_dynamic_archive.csv', index=False)
-#c = Chain('AMD')
+#print(get('scores/AMD_scores_daily.csv'))
+#scorecard_task('AMD','minute')
+#score_task('AMD','daily')
+#c = Chain('amd')
+#x = c.get_active_options(limit=10).to_dict('records') + c.get_active_options(option_type='put',limit=10).to_dict('records')
+#print(x)
+#print(c.get_max_pain())
+
 #print(c.get_active_options(limit=10))
 #print(c.get_active_options(limit=10, option_type='put'))
-#scorecard_task('AMD','10')
+#print(c.get_option_spread().to_dict('records'))
+
+#print(c.get_active_options(limit=10).to_html(classes="td-custom"))
+#artifacts()
 """ TO DO
-- further scorecard analyzer for decision making
-    - add scorecard to firestore?
 - build a full cycle option order
     - place order
     - verify it has executed
     - monitor it
 - tweak average implied volatility calculation for dynamic options
-"""    
+"""   

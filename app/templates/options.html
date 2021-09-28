@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+
+{% block header %}
+
+{% endblock %}
+
+{% block content %}
+<body>
+    <!--Options Form-->
+    <div class="card no-transition">
+        <div class="card-header">
+            <form id="optionDataForm" method="post" novalidate>
+                <div class="form-group row" id="form-group-sm-marg">
+                    <div class="col-sm-2" id="form-col">
+                        <div class="row optionData-form-input">
+                            {% if not params %}
+                            <input class="active-primary" id="symbolFilter" type="text" placeholder="Symbol" aria-label="Search" name="symbol">
+                            {% else %}
+                            <input class="active-primary" id="symbolFilter" type="text" placeholder="{{params['symbol']}}" value="{{params['symbol']}}" aria-label="Search" name="symbol">
+                            {% endif %}
+                            <select name="dimension">
+                                <option>Dimension</option>
+                                <option>Volume</option>
+                                <option>Implied_Volatility</option>
+                            </select>
+                            <button type="submit" formaction="{{url_for('options.options')}}" form="optionDataForm" class="btn btn-primary" id="optionDataBtn">Search</button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    <div>
+    {% if params %}
+    <!-- Avg IV, Max Pain, CP Ratio-->
+    <div class="card-body" style="float:left">
+        <div>Current Price: {{price}}</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Avg. IV</th>
+                    <th>Max Pain Strike</th>
+                    <th>Call/Put Ratio</th>
+                </tr>
+            </thead>
+            <tr>
+                <td>{{implied_volatility}}</td>
+                <td>{{max_pain}}</td>
+                <td>{{spread['call_put_ratio']}}</td>
+            </tr>
+        </table>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Open Interest</th>
+                    <th>Volume</th>
+                </tr>
+            </thead>
+            <tr>
+                <td>Call</td>
+                <td>{{spread['call_open_interest']}}</td>
+                <td>{{spread['call_volume']}}</td>
+            </tr>
+            <tr>
+                <td>Put</td>
+                <td>{{spread['put_open_interest']}}</td>
+                <td>{{spread['put_volume']}}</td>
+            </tr>
+            <tr>
+                <td>Total</td>
+                <td>{{spread['open_interest']}}</td>
+                <td>{{spread['volume']}}</td>
+            </tr>
+        </table>
+    </div>
+    {% endif %}
+    {% if spread %}
+    <!-- Option Spread Table
+    <div class="card-body" style="float:left">
+        
+    </div>-->
+    {% endif %}
+
+    <div class="card-body">
+        {% if fig %}
+        {{fig|safe}}
+        {% endif %}
+    </div>
+    <!--Active Options Table-->
+    <div class="card no-transition">
+        <table id="pagedTable" class="table table-hover sortable">
+            <thead class="thead-primary">
+                <tr>
+                    <th scope="col">Type</th>
+                    <th scope="col">Strike</th>
+                    <th scope="col">Volume</th>
+                    <th scope="col">Open Interest</th>
+                    <th scope="col">Expiration</th>
+                    <th scope="col">Mark Price</th>
+                </tr>
+            </thead>
+            {% for rec in active_options %}
+            <tr class="trow-custom">
+                <td class="td-custom">{{rec['type']}}</td>
+                <td class="td-custom">{{rec['strike_price']}}</td>
+                <td class="td-custom">{{rec['volume']}}</td>
+                <td class="td-custom">{{rec['open_interest']}}</td>
+                <td class="td-custom">{{rec['expiration_date']}}</td>
+                <td class="td-custom">{{rec['mark_price']}}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+</body>
+{% endblock %}

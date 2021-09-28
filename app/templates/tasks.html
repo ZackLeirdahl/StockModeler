@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+
+{% block header %}
+
+{% endblock %}
+
+{% block content %}
+<body>
+    <div class="card no-transition">
+        <div class="card-header">
+            <form id="taskForm" method="post" novalidate>
+                <select name="symbols" multiple>
+                    <option value="" disabled selected>Symbols</option>
+                    {% for sym in syms %}
+                    <option>{{sym}}</option>
+                    {% endfor %}
+                </select>
+                <select name="tasks" multiple>
+                    <option value="" disabled selected>Tasks</option>
+                    <option value="options">Options</option>
+                    <option value="historicals">Historicals</option>
+                    <option value="fundamentals">Fundamentals</option>
+                </select>
+                <select name="interval">
+                    <option value="" disabled selected>Interval</option>
+                    <option value="dynamic">Dynamic</option>
+                    <option value="daily">Daily</option>
+                </select>
+                <button type="submit" formaction="{{url_for('tasks.tasks')}}" form="taskForm" class="btn btn-primary" id="taskFormBtn">Go</button>
+            </form>
+        </div>
+    </div>
+</body>
+{% endblock %}

@@ -4,12 +4,12 @@ try:
     from client import Client
     from client_methods import ClientMethods
     from util import dte, black_scholes
-    from wrappers import filter_option_orders, filter_stock_orders, filter_options_positions
+    from wrappers import filter_option_orders, filter_stock_orders, filter_options_positions, format_stock_positions
 except:
     from .client import Client
     from .client_methods import ClientMethods
     from .util import dte, black_scholes
-    from .wrappers import filter_option_orders, filter_stock_orders, filter_options_positions
+    from .wrappers import filter_option_orders, filter_stock_orders, filter_options_positions, format_stock_positions
 
 
 class Portfolio:
@@ -34,6 +34,10 @@ class Portfolio:
 
     def get_stock_equity(self):
         return sum(ClientMethods.fetch_stock_positions(self.client)['equity'].to_list())
+
+    @format_stock_positions
+    def get_stock_positions(self):
+        return ClientMethods.fetch_stock_positions(self.client)
 
     @filter_option_orders
     def get_option_orders(self, **kwargs):
@@ -107,7 +111,7 @@ class Portfolio:
             option['theoretical_mark'] = black_scholes(prices[option['chain_symbol']],float(option['strike_price']), dte(option['expiration_date'])/365,.0094,float(option['implied_volatility']), option['type'])
         res = pd.merge(pd.DataFrame(data),positions, on='instrument')[['chain_symbol','strike_price','type','side','quantity','expiration_date','theoretical_mark','mark_price','volume','open_interest']]
         res['theoretical_value'] = [float(r['theoretical_mark'])*float(r['quantity']) for i, r in res.iterrows()]
-        return res
+        return res if not kwargs.get('symbol') else res[res['chain_symbol'] == kwargs['symbol']]
 
     def get_theoretical_value_of_positions(self, **kwargs):
         """ A method to get the theoretical value of each position grouped by symbol and type (call or put)
@@ -116,7 +120,7 @@ class Portfolio:
         pd.DataFrame
             a dataframe of the theoretical value of each position
         """
-        data = self.get_theoretical_mark_of_positions()
+        data = self.get_theoretical_mark_of_positions(**kwargs)
         res = {sym: {} for sym in list(data['chain_symbol'].unique())}
         for sym in list(data['chain_symbol'].unique()):
             for t in data[(data['chain_symbol'] == sym)]['type'].unique():
@@ -143,7 +147,11 @@ class Portfolio:
         list
             a list of dictionaries where each is the result for the given parameters
         """
+        symbol = kwargs['symbol'] if kwargs.get('symbol') else None
         df = pd.DataFrame(self.get_option_positions(symbol=symbol) if symbol else self.get_option_positions())
         df['mark_price'] = df['mark_price'].astype('float64')
         res = df.groupby(['type'])[['mark_price']].sum().to_dict()
-        return [symbol if symbol else None,{**{k: round(v,3) for k, v in res['mark_price'].items()},**{'long_short_ratio': round(res['mark_price']['long']/res['mark_price']['short'],2)}}]
+        return [symbol if symbol else None,{**{k: round(v,3) for k, v in res['mark_price'].items()},**{'long_short_ratio': round(res['mark_price']['long']/res['mark_price']['short'],2)}}] if res['mark_price'].get('long') and res['mark_price'].get('short') else 'INF'
+
+#print(Portfolio('theoretical_value_of_portfolio').data)
+#print(Portfolio('put_call_ratio').data) #- needs to be fixed if there is no long position or short position

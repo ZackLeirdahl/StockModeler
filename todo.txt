@@ -1,0 +1,9 @@
+- Create input box to enter Robinhood code
+- create a more abstract firebase layer to (i.e. get and post from test.py)
+- move the option timeseries class to app folder
+    - methods to show timeseries as chart, ability to choose dimensions
+- analyst ratings
+    - show current rating, and rating change over time
+- create view to run Firebase tasks
+- transform scorecard and score data into a user friendly dashboard
+- stream quotes into HTML view

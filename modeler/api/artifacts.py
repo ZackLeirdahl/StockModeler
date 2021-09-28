@@ -47,3 +47,5 @@ class Artifacts(IEXClient):
         if artifact == 'dividends':
             return self.get_dividends() if self.df is None else pd.concat([self.get_dividends(range='3m'),self.df])
         return getattr(self, 'get_%s' % artifact)() if self.df is None else pd.concat([getattr(self, 'get_%s' % artifact)(),self.df])
+
+

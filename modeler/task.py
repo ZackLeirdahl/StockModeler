@@ -47,10 +47,9 @@ class ClientTask(Task):
             self.outputs.append(Task('get','FireTask',self.symbol, self.uris[0], finish_task=self.name, finish_kwargs={'interval':self.uris[0].split('/')[-1].split('.')[0].split('_')[-1]}))
         if self.name == 'archive_timeseries':
             self.outputs.append(Task('get', 'FireTask',self.symbol, self.uris[0], finish_task=self.name))
-        if self.name == 'scorecard':
+        if self.name in ['scorecard','score']:
             self.outputs.append(Task('get','FireTask', self.symbol, self.uris[0], finish_task=self.name, finish_kwargs={'interval': self.interval}))
         return self.outputs
-
 
 class FireTask(Task):
     def __init__(self, *args, **kwargs):

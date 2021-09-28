@@ -5,9 +5,15 @@ from sseclient import SSEClient
 class IEXClient:
 
     URLS = {
-        'base': 'https://cloud.iexapis.com/v1/stock/market/batch/',
-        'market' : 'https://cloud.iexapis.com/v1/data-points/market/{}',
-        'stream': 'https://cloud-sse.iexapis.com/stable/{}?token={}&symbols={}'}
+        'account': 'https://cloud.iexapis.com/v1/account/{}',
+        'base': 'https://cloud.iexapis.com/v1/stock/{}/{}',
+        'crypto': 'https://cloud.iexapis.com/v1/crypto/{}/{}',
+        'collection': 'https://cloud.iexapis.com/v1/stock/market/collection/{}',
+        'market': 'https://cloud.iexapis.com/v1/stock/market/{}',
+        'macro' : 'https://cloud.iexapis.com/v1/data-points/market/{}',
+        'ref_data': 'https://cloud.iexapis.com/v1/ref-data/{}',
+        'stream': 'https://cloud-sse.iexapis.com/stable/{}?token={}&symbols={}'
+        }
     
     FIELDS = {
         'company': ['exchange','industry','sector','tags'],
@@ -21,30 +27,50 @@ class IEXClient:
         'key_stats': ['marketcap', 'employees', 'float', 'ttmEPS', 'ttmDividendRate', 'companyName', 'sharesOutstanding', 'nextDividendDate', 'dividendYield', 'nextEarningsDate', 'exDividendDate', 'beta'],
         'analyst': ['updateDate','buy', 'hold', 'sell', 'ratingScaleMark', 'priceTargetAverage', 'priceTargetHigh', 'priceTargetLow', 'numberOfAnalysts', 'consensusEPS', 'numberOfEstimates', 'reportDate', 'fiscalPeriod', 'fiscalEndDate'],
         'valuation': ['peRatio','priceToBook','priceToSales','pegRatio','forwardPERatio','revenuePerEmployee','enterpriseValueToRevenue'],
+        'ownership': ['entityProperName','adjHolding','adjMv','reportDate'],
         'minute': ['date','minute','open','high','low','close','volume'],
-        'daily': ['date','open','high','low','close','change','changePercent','volume']}
+        'daily': ['date','open','high','low','close','change','changePercent','volume'],
+        'list': ['change','changePercent','high','highTime','latestPrice','low','lowTime','previousClose','previousVolume','symbol','volume'],
+        'earnings_today': ['announceTime','consensusEPS','currency','fiscalEndDate','fiscalPeriod','numberOfEstimates','reportDate','symbol']}
     
     ENDPOINTS = {
-        'base': ['key_stats','advanced_stats','balance_sheet','cash_flow','earnings','financials','income_statement','company','dividends','estimates','fund_ownership','insider_roster','insider_summary','insider_transactions','institutional_ownership'],
+        'base': ['key_stats','advanced_stats','balance_sheet','cash_flow','financials','income_statement','company','dividends','fund_ownership','insider_roster','insider_summary','insider_transactions','institutional_ownership'],
         'commodities': ['oil','natural_gas','heating_oil','jet_fuel','diesel','gas','propane'],
         'economic_data': ['daily_treasury_rates','cpi','cc_interest_rates','fed_fund_rate','real_gdp','imf','initial_claims','industrial_production_interest','mortgage_rates','total_housing_starts','total_payrolls','total_vehicle_sales','retail_money_funds','unemployment_rate','recession_probability']
     }
     
-    def __init__(self, symbol=None, token=None):
+    def __init__(self, symbol=None):
         self.symbol = symbol.upper() if symbol else None
-        self.session = requests.session()
-        self.token = 'pk_a06a25225ada4526b58688e6a1bf95c4' if not token else token
-
-    def params(self, endpoint, optional_params = {}):
-        return {**{'symbols': self.symbol,'types': endpoint, 'token': self.token}, **{k: str(v).lower() if v is True or v is False else str(v) for k, v in optional_params.items()}}
-
-    def fetch(self, endpoint, params={}, stream=False):
-        response = self.session.get(url=self.URLS['base'], params=self.params(endpoint,params)) if not stream else SSEClient(self.URLS['stream'].format(endpoint,self.token,self.symbol))
-        return response.json()[self.symbol][endpoint] if not stream else response
-    
-    def fetch_market(self, endpoint):
-        response = self.session.get(url = self.URLS['market'].format(endpoint), params={'token':self.token})
+        self.session, self.token = requests.session(), 'pk_a06a25225ada4526b58688e6a1bf95c4'
+        
+    def request(self, url, params={}):
+        response = self.session.get(url=url, params={**{'token':self.token}, **{k: str(v).lower() if isinstance(v,bool) else str(v) for k, v in params.items()}})
         return response.json()
+
+    def fetch(self, endpoint, url=None, params={}):
+        return self.request(self.URLS['base'].format(self.symbol,endpoint) if not url else (self.URLS['crypto'].format(self.symbol,endpoint) if url == 'crypto' else self.URLS[url].format(endpoint)),params)
+
+    def stream(self, endpoint):
+        return SSEClient(self.URLS['stream'].format(endpoint,self.token,self.symbol))
+    
+    ### account api calls ###
+    def get_usage(self):
+        self.token = 'sk_c7bf589a15d04f3585c8313ea6c47d5b'
+        return self.fetch('usage/messages','account')
+
+    def get_metadata(self):
+        self.token = 'sk_c7bf589a15d04f3585c8313ea6c47d5b'
+        return self.fetch('metadata', 'account')
+    
+    def get_messages_by_endpoint(self):
+        return self.get_usage()['keyUsage']
+    
+    def get_messages_by_day(self):
+        return self.get_usage()['dailyUsage']
+    
+    def get_messages_remaining(self, pct=True):
+        data = self.get_metadata()
+        return data['messageLimit'] - data['messagesUsed'] if not pct else 100 - round(100*(data['messagesUsed'] / data['messageLimit']),2)
 
     ### base api calls ###
     def get_base(self):
@@ -61,10 +87,7 @@ class IEXClient:
 	
     def get_cash_flow(self, **kwargs):
         return pd.DataFrame(list(map(lambda x: {k:v for k, v in x.items() if k in self.FIELDS['cash_flow']}, self.fetch('cash-flow', params=kwargs)['cashflow'])))
-
-    def get_earnings(self, **kwargs):
-        return pd.DataFrame(list(map(lambda x: {k if k != 'fiscalEndDate' else 'reportDate': v for k, v in x.items()}, self.fetch('earnings', params=kwargs)['earnings'])))
-
+    
     def get_financials(self, **kwargs):
         return pd.DataFrame(list(map(lambda x: {k:v for k, v in x.items() if k in self.FIELDS['financials']}, self.fetch('financials', params=kwargs)['financials'])))
     
@@ -77,13 +100,10 @@ class IEXClient:
     def get_dividends(self, **kwargs):
         return pd.DataFrame(self.fetch('dividends', params=kwargs))
 
-    def get_estimates(self):
-        return self.fetch('estimates')['estimates'][0]
-
     def get_fund_ownership(self):
         df = pd.DataFrame(self.fetch('fund-ownership'))
         df['reportDate'] = df['report_date']
-        return df[['entityProperName','adjHolding','adjMv','reportDate']]
+        return df[self.FIELDS['ownership']]
 
     def get_insider_roster(self):
         return pd.DataFrame(self.fetch('insider-roster'))
@@ -95,7 +115,7 @@ class IEXClient:
         return pd.DataFrame(self.fetch('insider-transactions'))
 
     def get_institutional_ownership(self):
-        return pd.DataFrame(self.fetch('institutional-ownership'))[['entityProperName','adjHolding','adjMv','reportDate']]
+        return pd.DataFrame(self.fetch('institutional-ownership'))[self.FIELDS['ownership']]
 
     def get_historical_prices(self, **kwargs):
         return pd.DataFrame(self.fetch('chart', params=kwargs))
@@ -129,84 +149,134 @@ class IEXClient:
     def get_volume_by_venue(self):
         return pd.DataFrame(self.fetch('volume-by-venue'))
 
-    ### stream api calls ###
-    def get_quote_stream(self):
-        return self.fetch('stocksUSNoUTP',stream=True)
-    
-    def get_news_stream(self):
-        return self.fetch('news-stream',stream=True)
+    def get_sentiment(self):
+        return self.fetch('sentiment')
 
-    ### market api calls ###
+    ## collection api calls ##
+    def get_most_active(self):
+        return pd.DataFrame(self.fetch('list','collection',{'collectionName':'mostactive'}))[self.FIELDS['list']]
+
+    def get_gainers(self):
+        return pd.DataFrame(self.fetch('list','collection',{'collectionName':'gainers'}))[self.FIELDS['list']]
+    
+    def get_losers(self):
+        return pd.DataFrame(self.fetch('list','collection',{'collectionName':'losers'}))[self.FIELDS['list']]
+
+    ## market api calls ##
+    def get_market_volume(self):
+        return pd.DataFrame(self.fetch('volume','market'))
+    
+    def get_earnings_today(self):
+        data = self.fetch('today-earnings','market')
+        return pd.DataFrame(data['bto']+data['amc'])[self.FIELDS['earnings_today']]
+
+    def get_sector_performance(self):
+        return pd.DataFrame(self.fetch('sector-performance','market'))
+
+    ## ref_data api calls ##
+    def get_ref_data(self, collection='tags'):
+        """ collection: tags or sectors """
+        return self.fetch(collection,'ref_data')
+    
+    ### macro api calls ###
     ### commodoties
     def get_commodities(self):
         return pd.DataFrame([(commodity, getattr(self, 'get_{}_prices'.format(commodity))()) for commodity in self.ENDPOINTS['commodities']])
 
     def get_oil_prices(self, brent=False):
-        return self.fetch_market('DCOILWTICO' if not brent else 'DCOILBRENTEU')
+        return self.fetch('DCOILWTICO' if not brent else 'DCOILBRENTEU','macro')
     
     def get_natural_gas_prices(self):
-        return self.fetch_market('DHHNGSP')
+        return self.fetch('DHHNGSP','macro')
     
     def get_heating_oil_prices(self):
-        return self.fetch_market('DHOILNYH')
+        return self.fetch('DHOILNYH','macro')
 
     def get_jet_fuel_prices(self):
-        return self.fetch_market('DJFUELUSGULF')
+        return self.fetch('DJFUELUSGULF','macro')
     
     def get_diesel_prices(self):
-        return self.fetch_market('GASDESW')
+        return self.fetch('GASDESW','macro')
     
     def get_gas_prices(self):
-        return self.fetch_market('GASREGCOVW')
+        return self.fetch('GASREGCOVW','macro')
     
     def get_propane_prices(self):
-        return self.fetch_market('DPROPANEMBTX')
+        return self.fetch('DPROPANEMBTX','macro')
 
-    ### economic Deta ###
+    ### economic data ###
     def get_economic_data(self):
         return pd.DataFrame([(data_point, getattr(self, 'get_{}'.format(data_point))()) for data_point in self.ENDPOINTS['economic_data']])
     
     def get_daily_treasury_rates(self, rate=30):
-        return self.fetch_market('DGS' + str(rate))
+        return self.fetch('DGS' + str(rate),'macro')
 
     def get_cpi(self):
-        return self.fetch_market('CPIAUCSL')
+        return self.fetch('CPIAUCSL','macro')
 
     def get_cc_interest_rates(self):
-        return self.fetch_market('TERMCBCCALLNS')
+        return self.fetch('TERMCBCCALLNS','macro')
     
     def get_fed_fund_rate(self):
-        return self.fetch_market('FEDFUNDS')
+        return self.fetch('FEDFUNDS','macro')
     
     def get_real_gdp(self):
-        return self.fetch_market('A191RL1Q225SBEA')
+        return self.fetch('A191RL1Q225SBEA','macro')
     
     def get_imf(self):
-        return self.fetch_market('WIMFSL')
+        return self.fetch('WIMFSL','macro')
     
     def get_initial_claims(self):
-        return self.fetch_market('IC4WSA')
+        return self.fetch('IC4WSA','macro')
     
     def get_industrial_production_interest(self):
-        return self.fetch_market('INDPRO')
+        return self.fetch('INDPRO','macro')
     
     def get_mortgage_rates(self, length=30):
-        return self.fetch_market('MORTGAGE30US' if length == 30 else ('MORTGAGE15US' if length == 15 else 'MORTGAGE5US'))
+        return self.fetch('MORTGAGE30US' if length == 30 else ('MORTGAGE15US' if length == 15 else 'MORTGAGE5US'),'macro')
     
     def get_total_housing_starts(self):
-        return self.fetch_market('HOUST')
+        return self.fetch('HOUST','macro')
     
     def get_total_payrolls(self):
-        return self.fetch_market('PAYEMS')
+        return self.fetch('PAYEMS','macro')
     
     def get_total_vehicle_sales(self):
-        return self.fetch_market('TOTALSA')
+        return self.fetch('TOTALSA','macro')
     
     def get_retail_money_funds(self):
-        return self.fetch_market('WRMFSL')
+        return self.fetch('WRMFSL','macro')
     
     def get_unemployment_rate(self):
-        return self.fetch_market('UNRATE')
+        return self.fetch('UNRATE','macro')
     
     def get_recession_probability(self):
-        return self.fetch_market('RECPROUSM156N')
+        return self.fetch('RECPROUSM156N','macro')
+
+    ### stream api calls ###
+    def get_quote_stream(self):
+        return self.stream('stocksUSNoUTP')
+    
+    def get_news_stream(self):
+        return self.stream('news-stream')
+    
+    ## crypto api calls ##
+    def get_crypto_book(self):
+        return pd.DataFrame(self.fetch('book','crypto')['bids'])
+    
+    def get_crypto_price(self):
+        return self.fetch('price','crypto')['price']
+    
+    def get_crypto_quote(self):
+        return self.fetch('quote','crypto')
+
+#i = IEXClient('AMD')
+#print(i.get_base())
+
+#print(i.get_recommendation_trends())
+#print(i.get_crypto_quote())
+#print(i.get_messages_remaining())
+#print(i.get_earnings_today())
+
+#earnings, estimates
+

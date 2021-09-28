@@ -83,3 +83,6 @@ class TaskGenerator:
     
     def scorecard_tasks(self, test=False):
         return
+    
+    def score_tasks(self, test=False):
+        return
